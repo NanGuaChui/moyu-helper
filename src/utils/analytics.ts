@@ -15,7 +15,7 @@ class Analytics {
     script.src = '//sdk.51.la/js-sdk-pro.min.js';
     script.onload = () => {
       if (unsafeWindow.LA) {
-        unsafeWindow.LA.init({ id: this.LA_ID, ck: this.LA_CK });
+        unsafeWindow.LA.init({ id: this.LA_ID, ck: this.LA_CK, autoTrack: true });
       }
     };
     document.head.appendChild(script);
