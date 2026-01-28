@@ -2,11 +2,7 @@
  * 51.la 统计集成
  */
 
-declare global {
-  interface Window {
-    LA: any;
-  }
-}
+declare const unsafeWindow: Window & { LA?: any };
 
 class Analytics {
   private readonly LA_ID = '3OqB1GxEyPx7V8kp';
@@ -18,16 +14,16 @@ class Analytics {
     script.id = 'LA_COLLECT';
     script.src = '//sdk.51.la/js-sdk-pro.min.js';
     script.onload = () => {
-      if (window.LA) {
-        window.LA.init({ id: this.LA_ID, ck: this.LA_CK });
+      if (unsafeWindow.LA) {
+        unsafeWindow.LA.init({ id: this.LA_ID, ck: this.LA_CK });
       }
     };
     document.head.appendChild(script);
   }
 
   track(category: string, action: string, label?: string) {
-    if (window.LA) {
-      window.LA.track(action, { category, label });
+    if (unsafeWindow.LA) {
+      unsafeWindow.LA.track(action, { category, label });
     }
   }
 }

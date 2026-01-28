@@ -1,6 +1,6 @@
 {
   "name": "moyu-helper",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "摸鱼助手 - 摸鱼放置游戏自动化辅助脚本",
   "type": "module",
   "packageManager": "yarn@1.22.22",
