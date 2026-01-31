@@ -23,16 +23,6 @@ interface CraftStep {
 class CraftManager {
   private categories = DEFAULT_CRAFT_ITEMS;
   private running = false;
-  private progressToast: any = null;
-
-  private ensureProgressToast(message: string): any {
-    if (!this.progressToast) {
-      this.progressToast = toast.progress(message);
-    } else {
-      this.progressToast.update(message);
-    }
-    return this.progressToast;
-  }
 
   getCraftCategories(): CraftItemCategory[] {
     return this.categories;
@@ -170,10 +160,10 @@ class CraftManager {
     let actionQueue = await dataCache.getAsync('actionQueue');
     if (actionQueue.length > 0) {
       const totalCount = actionQueue.length;
-      this.ensureProgressToast(`正在清空任务 (0/${totalCount})`);
+      toast.progress(`正在清空任务 (0/${totalCount})`);
       for (let i = actionQueue.length - 1; i >= 0; i--) {
         const expectedLength = actionQueue.length - 1;
-        this.progressToast.update(`正在清空任务 (${totalCount - i}/${totalCount})`);
+        toast.progress(`正在清空任务 (${totalCount - i}/${totalCount})`);
         await ws.sendAndWaitEvent(
           'removeTaskFromQueue',
           i,
@@ -191,9 +181,9 @@ class CraftManager {
 
     if (existingTasks.length > 0) {
       const totalCount = existingTasks.length;
-      this.ensureProgressToast(`正在清空 ${kittyName} 的任务 (0/${totalCount})`);
+      toast.progress(`正在清空 ${kittyName} 的任务 (0/${totalCount})`);
       for (let i = existingTasks.length - 1; i >= 0; i--) {
-        this.progressToast.update(`正在清空 ${kittyName} 的任务 (${totalCount - i}/${totalCount})`);
+        toast.progress(`正在清空 ${kittyName} 的任务 (${totalCount - i}/${totalCount})`);
         await ws.sendAndListen('kitty:removeTask', { kittyUuid, index: i });
       }
     }
@@ -211,14 +201,14 @@ class CraftManager {
       toast.info('正在计算制造计划...');
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
-        this.progressToast?.hide();
+        toast.hideProgress();
         return;
       }
 
       const optimized = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info('无需制造');
-        this.progressToast?.hide();
+        toast.hideProgress();
         return;
       }
 
@@ -226,11 +216,11 @@ class CraftManager {
         await this.clearPlayerTasks();
       }
 
-      this.ensureProgressToast('正在添加制造任务...');
+      toast.progress('正在添加制造任务...');
 
       for (let i = 0; i < optimized.length; i++) {
         const step = optimized[i];
-        this.progressToast.update(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`);
+        toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`);
 
         await ws.sendAndWaitEvent(
           'addTaskToQueue',
@@ -245,7 +235,7 @@ class CraftManager {
         );
       }
 
-      this.progressToast.update('正在添加默认任务...');
+      toast.progress('正在添加默认任务...');
       const defaultTasks = await appConfig.PLAYER_DEFAULT_TASKS.get();
       for (const taskId of defaultTasks) {
         if (taskId) {
@@ -263,13 +253,13 @@ class CraftManager {
         }
       }
 
-      this.progressToast.hide();
+      toast.hideProgress();
       toast.success(`已提交 ${optimized.length} 个制造任务`);
       analytics.track('制造', 'player_craft', `${optimized.length}个任务`);
     } catch (error) {
       logger.error('制造失败', error);
       toast.error('制造失败');
-      this.progressToast?.hide();
+      toast.hideProgress();
     } finally {
       this.running = false;
     }
@@ -293,19 +283,19 @@ class CraftManager {
     try {
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
-        this.progressToast?.hide();
+        toast.hideProgress();
         return;
       }
 
       const optimized = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info(`🐱 ${kittyName} 无需制造`);
-        this.progressToast?.hide();
+        toast.hideProgress();
         return;
       }
 
       const tasks = optimized.slice(0, 2);
-      this.ensureProgressToast(`正在为 ${kittyName} 安排制造任务...`);
+      toast.progress(`正在为 ${kittyName} 安排制造任务...`);
 
       if (clearTasks) {
         await this.clearKittyTasks(kittyUuid, kittyName);
@@ -313,7 +303,7 @@ class CraftManager {
 
       for (let i = 0; i < tasks.length; i++) {
         const step = tasks[i];
-        this.progressToast?.update(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`);
+        toast.progress(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`);
 
         await ws.sendAndListen('kitty:addTask', {
           kittyUuid,
@@ -341,14 +331,14 @@ class CraftManager {
         addedDefaultTask = true;
       }
 
-      this.progressToast?.hide();
+      toast.hideProgress();
       const taskCount = addedDefaultTask ? tasks.length + 1 : tasks.length;
       toast.success(`🐱 ${kittyName} 已提交 ${taskCount} 个任务`);
       analytics.track('制造', 'kitty_craft', `${kittyName}-${taskCount}个任务`);
     } catch (error) {
       logger.error(`🐱 ${kittyName} 制造失败`, error);
       toast.error('制造失败');
-      this.progressToast?.hide();
+      toast.hideProgress();
     } finally {
       this.running = false;
     }

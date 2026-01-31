@@ -155,19 +155,19 @@ class QuestManager {
     return this.deduplicateQuests(validQuests);
   }
 
-  private async handleQuestExecution(uniqueQuests: Quest[], progress: any): Promise<void> {
+  private async handleQuestExecution(uniqueQuests: Quest[]): Promise<void> {
     if (uniqueQuests.length === 0) {
-      progress.hide();
+      toast.hideProgress();
       toast.info('没有符合条件的任务');
       return;
     }
 
     if (this.config.autoExecute) {
-      progress.update('开始执行任务...');
+      toast.progress('开始执行任务...');
       await this.startQuests(uniqueQuests);
-      progress.hide();
+      toast.hideProgress();
     } else {
-      progress.hide();
+      toast.hideProgress();
       toast.confirm(
         `任务刷新完成，共 ${uniqueQuests.length} 个任务待执行，是否立即执行？`,
         async () => {
@@ -220,7 +220,7 @@ class QuestManager {
       // 如果不需要刷新，直接执行
       if (toReroll.length === 0) {
         const uniqueQuests = this.getValidUniqueQuests(quests);
-        await this.handleQuestExecution(uniqueQuests, progress);
+        await this.handleQuestExecution(uniqueQuests);
         if (uniqueQuests.length > 0) {
           analytics.track('任务', 'refresh_quest', `${uniqueQuests.length}个`);
         }
@@ -238,7 +238,7 @@ class QuestManager {
       // 获取最终任务列表并执行
       const finalQuests = await this.fetchQuests();
       const uniqueQuests = this.getValidUniqueQuests(finalQuests);
-      await this.handleQuestExecution(uniqueQuests, progress);
+      await this.handleQuestExecution(uniqueQuests);
       if (uniqueQuests.length > 0) {
         analytics.track('任务', 'refresh_quest', `${uniqueQuests.length}个`);
       }

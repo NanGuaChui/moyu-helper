@@ -352,7 +352,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
           <Checkbox
             checked={settings[appConfig.AUTO_BUY_BASE_RESOURCES.key]}
             onChange={(v) => updateSetting(appConfig.AUTO_BUY_BASE_RESOURCES.key, v)}
-            label="自动购买基础资源"
+            label="自动购买基础资源（购买到设置量的110%，向下取整）"
           />
         </Row>
 

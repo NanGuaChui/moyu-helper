@@ -8,13 +8,12 @@ import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Input, Button } from '@/ui/components';
 import { analytics, getResourceDetail } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
-import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, TAG_RESOURCE_MAP } from '@/config/alchemy-recipes';
+import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, TAG_RESOURCE_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
 interface RecipeInput {
   [key: string]: { count: number };
 }
 
-// 名称缓存
 const nameCache = new Map<string, string>();
 
 function getCachedResourceName(id: string): string {
@@ -24,31 +23,22 @@ function getCachedResourceName(id: string): string {
   return nameCache.get(id)!;
 }
 
-// ==================== 炼金管理器 ====================
-
 class AlchemyManager {
   async quickAlchemy(recipeId: string, inputs: RecipeInput, times: number): Promise<void> {
     try {
-      const alchemyData = {
-        input: inputs,
-        times,
-      };
-
+      const alchemyData = { input: inputs, times };
       toast.info(`正在提交炼金任务 ${getCachedResourceName(recipeId)} x${times}...`);
       await ws.sendAndListen('alchemy:auto:create', alchemyData, 30000);
       toast.success(`✅ 炼金任务提交成功！`);
       analytics.track('炼金', 'quick_alchemy_success', `${getCachedResourceName(recipeId)} x${times}`);
     } catch (error: any) {
       logger.error('炼金失败', error);
-      const errorMsg = error?.payload?.data?.msg || '炼金任务提交失败';
-      toast.error(errorMsg);
+      toast.error(error?.payload?.data?.msg || '炼金任务提交失败');
     }
   }
 }
 
 export const alchemyManager = new AlchemyManager();
-
-// ==================== 炼金面板 ====================
 
 interface AlchemyPanelProps {
   onClose: () => void;
@@ -59,31 +49,35 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
   const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
   const [selectedMaterial, setSelectedMaterial] = useState('');
   const [times, setTimes] = useState(1);
-  const [recipeOptions, setRecipeOptions] = useState<{ value: string; label: string }[]>([]);
+  const [groupedOptions, setGroupedOptions] = useState<Array<{ label: string; options: Array<{ value: string; label: string }> }>>([]);
   const [materialOptions, setMaterialOptions] = useState<{ value: string; label: string }[]>([]);
   const [tagSelections, setTagSelections] = useState<Record<string, string>>({});
   const [tagOptions, setTagOptions] = useState<Record<string, { value: string; label: string }[]>>({});
-  const [materialPreview, setMaterialPreview] = useState<Array<{
-    name: string;
-    required: number;
-    available: number;
-  }> | null>(null);
+  const [materialPreview, setMaterialPreview] = useState<Array<{ name: string; required: number; available: number }> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [recipeData, setRecipeData] = useState<AlchemyItem | null>(null);
+
+  const findRecipeItem = (recipeId: string): AlchemyItem | null => {
+    for (const category of ALCHEMY_RECIPES) {
+      const item = category.items.find((i) => i.value === recipeId);
+      if (item) return item;
+    }
+    return null;
+  };
 
   useEffect(() => {
-    const loadInventory = async () => {
+    const loadOptions = async () => {
       const inventory = await dataCache.getAsync('inventory', true);
-      const options = ALCHEMY_RECIPES.map((recipe) => {
-        const count = inventory[recipe.id]?.count || 0;
-        const categoryLabel = recipe.category === 'essence' ? '精华' : '药水';
-        return {
-          value: recipe.id,
-          label: `[${categoryLabel}] ${recipe.name} (${count})`,
-        };
-      });
-      setRecipeOptions(options);
+      const options = ALCHEMY_RECIPES.map((category) => ({
+        label: category.label,
+        options: category.items.map((item) => ({
+          value: item.value,
+          label: `${item.label} (${inventory[item.value]?.count || 0})`,
+        })),
+      }));
+      setGroupedOptions(options);
     };
-    loadInventory();
+    loadOptions();
   }, []);
 
   useEffect(() => {
@@ -94,13 +88,14 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
         setTagSelections({});
         setTagOptions({});
         setMaterialPreview(null);
+        setRecipeData(null);
         return;
       }
 
       const inventory = await dataCache.getAsync('inventory', true);
-      const recipe = ALCHEMY_RECIPES.find((r) => r.id === selectedRecipe);
+      const recipe = findRecipeItem(selectedRecipe);
+      setRecipeData(recipe);
 
-      // 初始化标签选择和选项
       if (recipe) {
         const currentRecipe = recipe.recipes[selectedRecipeIndex];
         const newTagSelections: Record<string, string> = {};
@@ -110,13 +105,8 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
           if (TAG_RESOURCE_MAP[materialId]) {
             const resources = TAG_RESOURCE_MAP[materialId];
             const opts = resources
-              .map((id) => ({
-                id,
-                count: inventory[id]?.count || 0,
-                label: `${getCachedResourceName(id)} (${inventory[id]?.count || 0})`,
-              }))
+              .map((id) => ({ id, count: inventory[id]?.count || 0, label: `${getCachedResourceName(id)} (${inventory[id]?.count || 0})` }))
               .sort((a, b) => b.count - a.count);
-
             newTagOptions[materialId] = opts.map((o) => ({ value: o.id, label: o.label }));
             newTagSelections[materialId] = opts[0]?.id || resources[0];
           } else if (materialId.startsWith('(monster_essence_lv')) {
@@ -124,13 +114,9 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
             if (level) {
               const essenceKey = `monster_essence_lv${level}` as keyof typeof ESSENCE_CLASSIFICATION;
               const materials = ESSENCE_CLASSIFICATION[essenceKey];
-              if (materials && materials.length > 0) {
+              if (materials?.length > 0) {
                 const options = materials
-                  .map((id) => {
-                    const count = inventory[id]?.count || 0;
-                    const name = getCachedResourceName(id);
-                    return { value: id, label: `${name} (${count})`, count };
-                  })
+                  .map((id) => ({ value: id, label: `${getCachedResourceName(id)} (${inventory[id]?.count || 0})`, count: inventory[id]?.count || 0 }))
                   .sort((a, b) => b.count - a.count);
                 setMaterialOptions(options);
                 setSelectedMaterial(options[0]?.value || '');
@@ -142,68 +128,46 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
         setTagOptions(newTagOptions);
       }
     };
-
     updateMaterials();
   }, [selectedRecipe, selectedRecipeIndex]);
 
   useEffect(() => {
     const updatePreview = async () => {
-      if (!selectedRecipe) {
+      if (!selectedRecipe || !recipeData) {
         setMaterialPreview(null);
         return;
       }
 
-      const recipe = ALCHEMY_RECIPES.find((r) => r.id === selectedRecipe);
-      if (!recipe) return;
-
-      const currentRecipe = recipe.recipes[selectedRecipeIndex];
+      const currentRecipe = recipeData.recipes[selectedRecipeIndex];
       const inventory = await dataCache.getAsync('inventory', true);
-
       const preview: Array<{ name: string; required: number; available: number }> = [];
 
       for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
         if (TAG_RESOURCE_MAP[materialId]) {
           const selectedResource = tagSelections[materialId];
           if (selectedResource) {
-            preview.push({
-              name: getCachedResourceName(selectedResource),
-              required: count * times,
-              available: inventory[selectedResource]?.count || 0,
-            });
+            preview.push({ name: getCachedResourceName(selectedResource), required: count * times, available: inventory[selectedResource]?.count || 0 });
           }
         } else if (materialId.startsWith('(monster_essence_lv')) {
           if (selectedMaterial) {
-            preview.push({
-              name: getCachedResourceName(selectedMaterial),
-              required: count * times,
-              available: inventory[selectedMaterial]?.count || 0,
-            });
+            preview.push({ name: getCachedResourceName(selectedMaterial), required: count * times, available: inventory[selectedMaterial]?.count || 0 });
           }
         } else {
-          preview.push({
-            name: getCachedResourceName(materialId),
-            required: count * times,
-            available: inventory[materialId]?.count || 0,
-          });
+          preview.push({ name: getCachedResourceName(materialId), required: count * times, available: inventory[materialId]?.count || 0 });
         }
       }
-
       setMaterialPreview(preview);
     };
-
     updatePreview();
-  }, [selectedRecipe, selectedRecipeIndex, selectedMaterial, tagSelections, times]);
+  }, [selectedRecipe, selectedRecipeIndex, selectedMaterial, tagSelections, times, recipeData]);
 
   const handleSubmit = async () => {
-    if (!selectedRecipe) {
+    if (!selectedRecipe || !recipeData) {
       toast.warning('请选择配方');
       return;
     }
 
-    const recipe = ALCHEMY_RECIPES.find((r) => r.id === selectedRecipe);
-    if (!recipe) return;
-
-    const currentRecipe = recipe.recipes[selectedRecipeIndex];
+    const currentRecipe = recipeData.recipes[selectedRecipeIndex];
     const finalInputs: RecipeInput = {};
 
     for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
@@ -234,8 +198,6 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
     }
   };
 
-  const selectedRecipeData = ALCHEMY_RECIPES.find((r) => r.id === selectedRecipe);
-
   return (
     <>
       <FormGroup label="选择配方">
@@ -245,20 +207,17 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
             setSelectedRecipe(value);
             setSelectedRecipeIndex(0);
           }}
-          options={recipeOptions}
+          options={groupedOptions}
           placeholder="-- 请选择配方 --"
         />
       </FormGroup>
 
-      {selectedRecipeData && selectedRecipeData.recipes.length > 1 && (
+      {recipeData && recipeData.recipes.length > 1 && (
         <FormGroup label="配方选项">
           <Select
             value={String(selectedRecipeIndex)}
             onChange={(value) => setSelectedRecipeIndex(Number(value))}
-            options={selectedRecipeData.recipes.map((r, idx) => ({
-              value: String(idx),
-              label: r.description || `配方 ${idx + 1}`,
-            }))}
+            options={recipeData.recipes.map((r, idx) => ({ value: String(idx), label: r.description || `配方 ${idx + 1}` }))}
           />
         </FormGroup>
       )}
@@ -271,30 +230,15 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
 
       {Object.entries(tagOptions).map(([tag, options]) => (
         <FormGroup key={tag} label={`选择 ${tag}`}>
-          <Select
-            value={tagSelections[tag] || ''}
-            onChange={(value) => setTagSelections({ ...tagSelections, [tag]: value })}
-            options={options}
-          />
+          <Select value={tagSelections[tag] || ''} onChange={(value) => setTagSelections({ ...tagSelections, [tag]: value })} options={options} />
         </FormGroup>
       ))}
 
       <FormGroup label="制作次数">
-        <Input
-          type="number"
-          value={times}
-          onChange={(value) => setTimes(Math.min(1000, Number(value)))}
-          min={1}
-          max={1000}
-        />
+        <Input type="number" value={times} onChange={(value) => setTimes(Math.min(1000, Number(value)))} min={1} max={1000} />
         <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
           {[10, 100, 1000].map((value) => (
-            <Button
-              key={value}
-              variant="secondary"
-              onClick={() => setTimes((prev) => Math.min(1000, prev + value))}
-              style={{ flex: 1, padding: '6px 12px', fontSize: '12px' }}
-            >
+            <Button key={value} variant="secondary" onClick={() => setTimes((prev) => Math.min(1000, prev + value))} style={{ flex: 1, padding: '6px 12px', fontSize: '12px' }}>
               +{value}
             </Button>
           ))}

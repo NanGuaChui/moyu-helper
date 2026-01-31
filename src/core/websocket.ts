@@ -98,10 +98,12 @@ class WebSocketMonitor {
 
   async sendAndListen(sendEvent: string, data: any = {}, timeout?: number): Promise<WebSocketMessage> {
     const promise = new Promise<WebSocketMessage>((resolve, reject) => {
-      const timer = timeout ? setTimeout(() => {
-        unsubscribe();
-        reject(new Error(`等待事件 [${sendEvent}] 超时`));
-      }, timeout) : null;
+      const timer = timeout
+        ? setTimeout(() => {
+            unsubscribe();
+            reject(new Error(`等待事件 [${sendEvent}] 超时`));
+          }, timeout)
+        : null;
 
       const unsubscribe = this.once([`${sendEvent}:success`, `${sendEvent}:fail`], (data) => {
         if (timer) clearTimeout(timer);
@@ -116,7 +118,12 @@ class WebSocketMonitor {
     return promise;
   }
 
-  async sendAndListenCustom(sendEvent: string, listenEvent: string | string[], data: any = {}, timeout?: number): Promise<WebSocketMessage> {
+  async sendAndListenCustom(
+    sendEvent: string,
+    listenEvent: string | string[],
+    data: any = {},
+    timeout?: number,
+  ): Promise<WebSocketMessage> {
     const promise = this.awaitOnce(listenEvent, timeout);
     await this.send(sendEvent, data);
     return promise;

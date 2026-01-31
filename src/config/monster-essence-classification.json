@@ -1,10 +1,5 @@
 {
-  "monster_essence_lv1": [
-    "goblinDagger",
-    "skeletonShield",
-    "phantomWhisker",
-    "smokeBall"
-  ],
+  "monster_essence_lv1": ["goblinDagger", "skeletonShield", "phantomWhisker", "smokeBall"],
   "monster_essence_lv2": [
     "trollClub",
     "frostDagger",

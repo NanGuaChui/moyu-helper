@@ -118,6 +118,7 @@ class Toast {
   private container: HTMLDivElement | null = null;
   private toastCount = 0;
   private readonly MAX_TOASTS = 5;
+  private currentProgress: ProgressToast | null = null;
 
   private getContainer(): HTMLDivElement {
     if (!this.container) {
@@ -166,6 +167,12 @@ class Toast {
   error = (msg: string, timeout = 3500) => this.show('error', msg, timeout);
 
   progress(msg: string): ProgressToast {
+    // 如果已存在 progress，直接更新
+    if (this.currentProgress) {
+      this.currentProgress.update(msg);
+      return this.currentProgress;
+    }
+
     const container = this.getContainer();
     const toast = document.createElement('div');
     let isHidden = false;
@@ -186,6 +193,7 @@ class Toast {
       if (!isHidden) {
         isHidden = true;
         if (timer) clearTimeout(timer);
+        this.currentProgress = null;
         this.remove(toast);
       }
     };
@@ -195,7 +203,7 @@ class Toast {
     this.toastCount++;
     resetTimer();
 
-    return {
+    const progressToast: ProgressToast = {
       update: (newMsg: string) => {
         if (!isHidden) {
           msg = newMsg;
@@ -204,6 +212,9 @@ class Toast {
       },
       hide: handleHide,
     };
+
+    this.currentProgress = progressToast;
+    return progressToast;
   }
 
   confirm(msg: string, onConfirm?: () => void, timeout?: number): void {
@@ -222,6 +233,10 @@ class Toast {
 
     container.appendChild(toast);
     this.toastCount++;
+  }
+
+  hideProgress(): void {
+    this.currentProgress?.hide();
   }
 }
 

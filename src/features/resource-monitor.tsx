@@ -220,6 +220,7 @@ class ResourceMonitor {
     const inventory = await dataCache.getAsync('inventory');
 
     for (const [id, config] of Object.entries(this.resources)) {
+      if (config.threshold === 0) continue;
       const count = inventory[id]?.count || 0;
       const isProblematic = config.type === 'insufficient' ? count < config.threshold : count >= config.threshold;
 
@@ -254,15 +255,16 @@ class ResourceMonitor {
 
     for (const item of problematicItems) {
       if (item.type !== 'insufficient') continue;
-      
+
       const resourceId = this.nameToIdCache.get(item.name);
       if (!resourceId || !BASE_RESOURCES.includes(resourceId as any)) continue;
 
-      const needed = item.threshold - item.count;
+      const targetAmount = Math.floor(item.threshold * 1.1);
+      const needed = targetAmount - item.count;
       if (needed > 0) {
         try {
           await ws.send('requestShopBuyResource', { id: resourceId, count: needed });
-          logger.info(`自动购买基础资源: ${item.name} x${needed}`);
+          logger.info(`自动购买基础资源: ${item.name} x${needed} (目标: ${targetAmount})`);
           boughtItems.push(`${item.name}x${needed}`);
           hasBought = true;
         } catch (error) {
