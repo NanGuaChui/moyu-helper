@@ -21,6 +21,7 @@ import {
   craftManager,
   battleGuard,
   tavernExpertManager,
+  wsSender,
 } from './features';
 import { mountResourceUtils } from './utils';
 import { appConfig } from './config/gm-settings';
@@ -124,6 +125,13 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
       order: 5,
     });
   }
+
+  // WS 消息发送
+  buttons.push({
+    text: '📡 发送消息',
+    onClick: () => wsSender.openModal(),
+    order: 7,
+  });
 
   // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
   if (tavernExpertEnabled && dataCache.get('tavern')) {

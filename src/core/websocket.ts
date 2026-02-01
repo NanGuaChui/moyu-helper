@@ -105,9 +105,9 @@ class WebSocketMonitor {
           }, timeout)
         : null;
 
-      const unsubscribe = this.once([`${sendEvent}:success`, `${sendEvent}:fail`], (data) => {
+      const unsubscribe = this.once([`${sendEvent}:success`, `${sendEvent}:fail`, `${sendEvent}:error`], (data) => {
         if (timer) clearTimeout(timer);
-        if (data.event === `${sendEvent}:fail`) {
+        if (data.event === `${sendEvent}:fail` || data.event === `${sendEvent}:error`) {
           reject(data);
         } else {
           resolve(data);
