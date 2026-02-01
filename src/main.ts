@@ -57,8 +57,7 @@ const app: AppModules = {
  * 初始化日志系统
  */
 async function initLogger(): Promise<void> {
-  const logLevel = await appConfig.LOG_LEVEL.get();
-  logger.setMinLevel(logLevel);
+  await logger.reload();
 }
 
 /**

@@ -25,26 +25,18 @@ const LOG_CONFIGS: Record<LogLevel, LogConfig> = {
 };
 
 class Logger {
-  private minLevel: LogLevel = 'none';
+  private enabledTypes: Record<string, boolean> = {};
 
   constructor() {
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
   }
 
-  setMinLevel(level: LogLevel): void {
-    this.minLevel = level;
-  }
-
-  getMinLevel(): LogLevel {
-    return this.minLevel;
-  }
-
   async reload(): Promise<void> {
-    this.minLevel = await appConfig.LOG_LEVEL.get();
+    this.enabledTypes = await appConfig.LOG_ENABLED_TYPES.get();
   }
 
   private shouldLog(level: LogLevel): boolean {
-    return LOG_CONFIGS[level].priority >= LOG_CONFIGS[this.minLevel].priority;
+    return this.enabledTypes[level] === true;
   }
 
   private log(level: LogLevel, ...args: any[]): void {

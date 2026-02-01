@@ -21,7 +21,7 @@ const ROW_STYLE: JSX.CSSProperties = {
 const LABEL_STYLE: JSX.CSSProperties = {
   fontSize: '12px',
   color: '#666',
-  minWidth: '100px',
+  minWidth: '80px',
 };
 
 export function Row({ label, children, align = 'space-between', gap = 8, style = {}, className = '' }: RowProps) {

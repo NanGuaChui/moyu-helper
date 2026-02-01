@@ -39,7 +39,13 @@ export const appConfig = {
   MONITORED_RESOURCES: createGMConfigSetting('monitored_resources', '{}'),
 
   // 日志级别配置
-  LOG_LEVEL: createGMConfigSetting<'debug' | 'info' | 'warn' | 'error' | 'success' | 'none'>('log_level', 'none'),
+  LOG_ENABLED_TYPES: createGMConfigSetting<Record<string, boolean>>('log_enabled_types', {
+    debug: false,
+    info: false,
+    success: false,
+    warn: true,
+    error: true,
+  }),
 
   // 自动使用浆果配置
   AUTO_USE_BERRY_ENABLED: createGMConfigSetting('auto_use_berry_enabled', false),

@@ -273,11 +273,13 @@ class WebSocketMonitor {
     // 非字符串直接跳过
     if (typeof data !== 'string') return;
 
-    // 仅处理 451- 开头的消息（socket.io 二进制消息头）
     if (data.startsWith(MESSAGE_PREFIX.BINARY_HEADER)) {
+      // 处理 451- 开头的消息（socket.io 二进制消息头）
       this.handle451Header(data);
+    } else if (data.startsWith(MESSAGE_PREFIX.SEND)) {
+      // 处理 42 开头的普通消息
+      this.handle42Message(data);
     }
-    // 其他消息（如 42 开头的普通消息）直接忽略，避免不必要的解析
   }
 
   private handle451Header(data: string): void {
@@ -288,6 +290,25 @@ class WebSocketMonitor {
       const [event, obj] = JSON.parse(data.slice(jsonStart));
       if (obj?._placeholder === true) {
         this.pendingBinary.push({ event, num: obj.num || 0 });
+      }
+    } catch {
+      // 解析失败静默跳过
+    }
+  }
+
+  private handle42Message(data: string): void {
+    try {
+      const jsonStart = data.indexOf('[');
+      if (jsonStart === -1) return;
+
+      const [event, payloadStr] = JSON.parse(data.slice(jsonStart));
+
+      if (event === 'dispatchTaskQueueToClient') {
+        console.log(event, payloadStr);
+      }
+      if (event) {
+        const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
+        this.dispatch({ event, payload });
       }
     } catch {
       // 解析失败静默跳过

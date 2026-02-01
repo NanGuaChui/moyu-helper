@@ -206,65 +206,66 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             const someSelected = selectedTasks.length > 0 && !allSelected;
 
             return (
-            <div
-              key={category}
-              style={{ marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}
-            >
               <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '6px 10px',
-                  background: '#f5f5f5',
-                  cursor: 'pointer',
-                  gap: '8px',
-                }}
-                onClick={() =>
-                  setExpandedCategories((prev) => ({
-                    ...prev,
-                    [category]: !prev[category],
-                  }))
-                }
+                key={category}
+                style={{ marginBottom: '8px', border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}
               >
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={someSelected}
-                  onChange={(checked) => {
-                    updateSetting(appConfig.QUEST_SELECTED_TASKS.key, {
-                      ...settings[appConfig.QUEST_SELECTED_TASKS.key],
-                      [category]: tasks.reduce((acc, t) => ({ ...acc, [t]: checked }), {}),
-                    });
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    padding: '6px 10px',
+                    background: '#f5f5f5',
+                    cursor: 'pointer',
+                    gap: '8px',
                   }}
-                  onClick={(e) => e.stopPropagation()}
-                  style={{ margin: 0 }}
-                />
-                <span style={{ flex: 1 }}>{category}</span>
-                <span style={{ fontSize: '12px', color: '#666' }}>{expandedCategories[category] ? '▼' : '▶'}</span>
-              </div>
-
-              {expandedCategories[category] && (
-                <div style={{ padding: '6px 10px 6px 28px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  {tasks.map((task) => (
-                    <Checkbox
-                      key={task}
-                      checked={settings[appConfig.QUEST_SELECTED_TASKS.key]?.[category]?.[task] || false}
-                      onChange={(checked) => {
-                        updateSetting(appConfig.QUEST_SELECTED_TASKS.key, {
-                          ...settings[appConfig.QUEST_SELECTED_TASKS.key],
-                          [category]: {
-                            ...settings[appConfig.QUEST_SELECTED_TASKS.key]?.[category],
-                            [task]: checked,
-                          },
-                        });
-                      }}
-                      label={task}
-                      style={{ margin: 0 }}
-                    />
-                  ))}
+                  onClick={() =>
+                    setExpandedCategories((prev) => ({
+                      ...prev,
+                      [category]: !prev[category],
+                    }))
+                  }
+                >
+                  <Checkbox
+                    checked={allSelected}
+                    indeterminate={someSelected}
+                    onChange={(checked) => {
+                      updateSetting(appConfig.QUEST_SELECTED_TASKS.key, {
+                        ...settings[appConfig.QUEST_SELECTED_TASKS.key],
+                        [category]: tasks.reduce((acc, t) => ({ ...acc, [t]: checked }), {}),
+                      });
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ margin: 0 }}
+                  />
+                  <span style={{ flex: 1 }}>{category}</span>
+                  <span style={{ fontSize: '12px', color: '#666' }}>{expandedCategories[category] ? '▼' : '▶'}</span>
                 </div>
-              )}
-            </div>
-          );})}
+
+                {expandedCategories[category] && (
+                  <div style={{ padding: '6px 10px 6px 28px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {tasks.map((task) => (
+                      <Checkbox
+                        key={task}
+                        checked={settings[appConfig.QUEST_SELECTED_TASKS.key]?.[category]?.[task] || false}
+                        onChange={(checked) => {
+                          updateSetting(appConfig.QUEST_SELECTED_TASKS.key, {
+                            ...settings[appConfig.QUEST_SELECTED_TASKS.key],
+                            [category]: {
+                              ...settings[appConfig.QUEST_SELECTED_TASKS.key]?.[category],
+                              [task]: checked,
+                            },
+                          });
+                        }}
+                        label={task}
+                        style={{ margin: 0 }}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </Card>
 
@@ -405,19 +406,29 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
       </Card>
 
       <Card title="🔧 调试配置">
-        <Row label="日志级别">
-          <Select
-            value={settings[appConfig.LOG_LEVEL.key]}
-            onChange={(v) => updateSetting(appConfig.LOG_LEVEL.key, v)}
-            options={[
-              { value: 'none', label: '不显示日志' },
-              { value: 'error', label: '错误' },
-              { value: 'warn', label: '警告' },
-              { value: 'success', label: '成功' },
-              { value: 'info', label: '信息' },
+        <Row label="日志类型">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {[
               { value: 'debug', label: '调试' },
-            ]}
-          />
+              { value: 'info', label: '信息' },
+              { value: 'success', label: '成功' },
+              { value: 'warn', label: '警告' },
+              { value: 'error', label: '错误' },
+            ].map((option) => (
+              <Checkbox
+                key={option.value}
+                checked={settings[appConfig.LOG_ENABLED_TYPES.key]?.[option.value] || false}
+                onChange={(checked) => {
+                  updateSetting(appConfig.LOG_ENABLED_TYPES.key, {
+                    ...settings[appConfig.LOG_ENABLED_TYPES.key],
+                    [option.value]: checked,
+                  });
+                }}
+                label={option.label}
+                style={{ margin: 0 }}
+              />
+            ))}
+          </div>
         </Row>
       </Card>
 
