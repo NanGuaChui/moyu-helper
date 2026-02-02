@@ -6,12 +6,64 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // 常量配置
-const FILTERED_RESOURCES = ['berry', 'fish', 'wood', 'stone', 'bamboo', 'coal', '__satiety'];
+const FILTERED_RESOURCES = new Set(['berry', 'fish', 'wood', 'stone', 'bamboo', 'coal', '__satiety']);
 const EXCLUDED_CATEGORIES = ['基础资源', '其他', '种子'];
-const REQUIRED_ACTIONS = ['miningFishscaleMineral', 'cutBamboo', 'pearlCultivation', 'refinePureEssence'];
-
-// 需要收藏的 actions（会显示在"收藏"分类中）
+const REQUIRED_ACTIONS = [
+  'miningFishscaleMineral',
+  'cutBamboo',
+  'pearlCultivation',
+  'refinePureEssence',
+  'compileBookOfWorkSkillTreePoint',
+  'compileBookOfBattleSkillTreePoint',
+];
 const COLLECTION_ACTIONS = ['reading', 'swim', 'charcoalMaking', 'pickRainbowShard'];
+const EXCLUDED_ACTIONS = new Set(['farming', 'farmingRye']);
+const SPECIAL_CATEGORY_MAPPING = { brewMysticalCatnipPotion: '特殊制造' };
+
+// 一级分类定义
+const PRIMARY_CATEGORIES = [
+  { key: '采集', tags: ['gathering'], secondaries: ['种植', '野外', '农田', '海边', '天空'] },
+  { key: '钓鱼', tags: ['fishing'], secondaries: ['近海'] },
+  { key: '养殖', tags: ['farmingAnimal'], secondaries: ['通用'] },
+  { key: '挖掘', tags: ['mining'], secondaries: ['矿洞', '神秘矿洞'] },
+  { key: '烹饪', tags: ['cooking'], secondaries: ['通用', '美食', '鱼饵', '酿造', '饮品', '罐头', '甜点'] },
+  {
+    key: '制造',
+    tags: ['manufacturing', 'forging'],
+    secondaries: ['工具', '通用', '武器', '法杖', '饰品', '道具', '渔具', '猫舍家具', '文具'],
+  },
+  {
+    key: '缝制',
+    tags: ['sewing'],
+    secondaries: ['基础缝纫', '羊毛制品', '工作服', '饰品', '丝制品', '特殊物品', '绒毛制品'],
+  },
+  { key: '种植', tags: ['planting'], secondaries: ['森林'] },
+  {
+    key: '炼金',
+    tags: ['mysterious'],
+    secondaries: ['猫咪自学点金术', '基础点金术', '精华点金术', '提炼', '制药', '净化'],
+  },
+  { key: '特殊制造', tags: ['knowledge'] },
+  { key: '探索', tags: ['exploring'] },
+  {
+    key: '自我提升',
+    tags: ['dexterity', 'stamina', 'strength', 'intelligence', 'attacking', 'defencing'],
+    secondaries: ['锻炼', '实战', '室内训练', '学习'],
+  },
+];
+
+// 构建分类映射
+const CATEGORY_MAPS = (() => {
+  const secondary = {};
+  const tag = {};
+
+  PRIMARY_CATEGORIES.forEach(({ key, tags, secondaries }) => {
+    tags.forEach((t) => (tag[t] = key));
+    secondaries?.forEach((s) => (secondary[s] = key));
+  });
+
+  return { secondary, tag };
+})();
 
 // 读取并解析源数据
 function loadRawData() {
@@ -72,44 +124,50 @@ function calculateEfficiency(action, reward) {
   return (percent * baseCount) / (baseDuration / 1000);
 }
 
-// 计算非基础资源依赖数量
-function countDependencies(action) {
-  return action.requirement?.resource?.filter((req) => !FILTERED_RESOURCES.includes(req.id)).length || 0;
+// 提取非基础资源依赖
+function extractDependencies(action) {
+  return action.requirement?.resource?.filter((req) => !FILTERED_RESOURCES.has(req.id)) || [];
+}
+
+// 构建物品生产索引
+function buildItemProducerIndex(rawData) {
+  const index = {};
+  Object.entries(rawData).forEach(([actionId, action]) => {
+    if (EXCLUDED_ACTIONS.has(actionId)) return;
+    action.rewards?.forEach((reward) => {
+      if (!index[reward.id]) index[reward.id] = [];
+      index[reward.id].push(actionId);
+    });
+  });
+  return index;
 }
 
 // 找到生产目标物品的最优 action
-function findOptimalActions(rawData, targetItemIds) {
-  const itemProducers = {};
-
-  // 收集所有生产者
-  Object.entries(rawData).forEach(([actionId, action]) => {
-    action.rewards?.forEach((reward) => {
-      if (!targetItemIds.has(reward.id)) return;
-
-      if (!itemProducers[reward.id]) {
-        itemProducers[reward.id] = [];
-      }
-
-      itemProducers[reward.id].push({
-        actionId,
-        efficiency: calculateEfficiency(action, reward),
-        depCount: countDependencies(action),
-      });
-    });
-  });
-
-  // 选择最优 action：最少依赖优先，效率次之
+function findOptimalActions(rawData, targetItemIds, producerIndex) {
   const optimalActions = new Set();
-  Object.values(itemProducers).forEach((producers) => {
-    producers.sort((a, b) => a.depCount - b.depCount || b.efficiency - a.efficiency);
-    optimalActions.add(producers[0].actionId);
+
+  targetItemIds.forEach((itemId) => {
+    const producers = producerIndex[itemId]?.map((actionId) => {
+      const action = rawData[actionId];
+      const reward = action.rewards.find((r) => r.id === itemId);
+      return {
+        actionId,
+        depCount: extractDependencies(action).length,
+        efficiency: calculateEfficiency(action, reward),
+      };
+    });
+
+    if (producers?.length) {
+      producers.sort((a, b) => a.depCount - b.depCount || b.efficiency - a.efficiency);
+      optimalActions.add(producers[0].actionId);
+    }
   });
 
   return optimalActions;
 }
 
 // 递归收集所有依赖的 action
-function collectDependentActions(rawData, actionIds) {
+function collectDependentActions(rawData, actionIds, producerIndex) {
   const visited = new Set();
   const queue = Array.from(actionIds);
 
@@ -118,16 +176,10 @@ function collectDependentActions(rawData, actionIds) {
     if (visited.has(actionId)) continue;
     visited.add(actionId);
 
-    const action = rawData[actionId];
-    if (!action?.requirement?.resource) continue;
-
-    // 找到生产依赖物品的 action
-    action.requirement.resource.forEach((req) => {
-      if (FILTERED_RESOURCES.includes(req.id)) return;
-
-      Object.entries(rawData).forEach(([depActionId, depAction]) => {
-        if (visited.has(depActionId)) return;
-        if (depAction.rewards?.some((r) => r.id === req.id)) {
+    const dependencies = extractDependencies(rawData[actionId]);
+    dependencies.forEach((req) => {
+      producerIndex[req.id]?.forEach((depActionId) => {
+        if (!visited.has(depActionId) && !EXCLUDED_ACTIONS.has(depActionId)) {
           queue.push(depActionId);
         }
       });
@@ -137,18 +189,28 @@ function collectDependentActions(rawData, actionIds) {
   return visited;
 }
 
+// 获取 action 分类
+function getActionCategory(actionId, action) {
+  return (
+    SPECIAL_CATEGORY_MAPPING[actionId] ||
+    CATEGORY_MAPS.secondary[action.secondaryClassification] ||
+    action.secondaryClassification ||
+    CATEGORY_MAPS.tag[action.characterImprove?.[0]?.status] ||
+    '其他'
+  );
+}
+
 // 转换 action 为目标格式
 function transformAction(actionId, action) {
-  const rewards =
-    action.rewards?.map((reward) => ({
-      itemId: reward.id,
-      count: (reward.range?.min || reward.count || 1) * (reward.percent || 1),
-    })) || [];
+  const rewards = action.rewards?.map((r) => ({
+    itemId: r.id,
+    count: (r.range?.min || r.count || 1) * (r.percent || 1),
+  })) || [];
 
-  const dependencies =
-    action.requirement?.resource
-      ?.filter((req) => !FILTERED_RESOURCES.includes(req.id))
-      .map((req) => ({ itemId: req.id, count: req.count })) || [];
+  const dependencies = extractDependencies(action).map((req) => ({
+    itemId: req.id,
+    count: req.count,
+  }));
 
   return {
     id: actionId,
@@ -156,64 +218,48 @@ function transformAction(actionId, action) {
     actionId,
     rewards,
     dependencies,
-    category: action.secondaryClassification || '其他',
+    category: getActionCategory(actionId, action),
   };
 }
 
-// 按分类分组并排序
-function groupByCategory(actions) {
-  const grouped = {};
-
-  actions.forEach((action) => {
-    const category = action.category;
-    if (!grouped[category]) grouped[category] = [];
-    grouped[category].push(action);
-  });
-
-  // 对每个分类内排序
-  Object.values(grouped).forEach((items) => {
-    items.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
-  });
-
-  return grouped;
-}
-
 // 转换为树形结构
-function buildTreeStructure(actions) {
-  return actions.map((item) => ({
-    value: item.id,
-    label: item.name,
-    actionId: item.actionId,
-    rewards: item.rewards,
-    ...(item.dependencies.length > 0 && { dependencies: item.dependencies }),
-  }));
+function toTreeItem(action) {
+  return {
+    value: action.id,
+    label: action.name,
+    actionId: action.actionId,
+    rewards: action.rewards,
+    ...(action.dependencies.length && { dependencies: action.dependencies }),
+  };
 }
 
 // 生成最终数据结构
 function generateFinalData(rawData, normalActionIds, collectionActionIds) {
-  const normalActions = Array.from(normalActionIds)
-    .filter((id) => rawData[id])
+  const actions = Array.from(normalActionIds)
+    .filter((id) => rawData[id] && !EXCLUDED_ACTIONS.has(id))
     .map((id) => transformAction(id, rawData[id]));
 
-  const grouped = groupByCategory(normalActions);
+  // 按分类分组
+  const grouped = {};
+  actions.forEach((action) => {
+    (grouped[action.category] ||= []).push(action);
+  });
 
-  const categories = Object.keys(grouped)
-    .sort((a, b) => a.localeCompare(b, 'zh-CN'))
-    .map((category) => ({
+  // 排序并转换
+  const categories = Object.entries(grouped)
+    .sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
+    .map(([category, items]) => ({
       value: category,
       label: category,
-      items: buildTreeStructure(grouped[category]),
+      items: items.sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')).map(toTreeItem),
     }));
 
-  // 添加收藏分类到最前面
-  if (collectionActionIds.length > 0) {
-    const collectionActions = collectionActionIds
-      .filter((id) => rawData[id])
-      .map((id) => transformAction(id, rawData[id]));
+  // 添加收藏分类
+  if (collectionActionIds.length) {
     categories.unshift({
       value: 'collection',
       label: '收藏',
-      items: buildTreeStructure(collectionActions),
+      items: collectionActionIds.filter((id) => rawData[id]).map((id) => toTreeItem(transformAction(id, rawData[id]))),
     });
   }
 
@@ -241,13 +287,11 @@ function writeOutputFile(data, targetItemCount) {
 function main() {
   const rawData = loadRawData();
   const targetItemIds = extractTargetItemIds();
-  const optimalActions = findOptimalActions(rawData, targetItemIds);
-  const allActions = collectDependentActions(rawData, optimalActions);
+  const producerIndex = buildItemProducerIndex(rawData);
+  const optimalActions = findOptimalActions(rawData, targetItemIds, producerIndex);
+  const allActions = collectDependentActions(rawData, optimalActions, producerIndex);
 
-  // 添加 REQUIRED_ACTIONS 到结果集，排除 farming
-  REQUIRED_ACTIONS.forEach((id) => {
-    if (id !== 'farming') allActions.add(id);
-  });
+  REQUIRED_ACTIONS.forEach((id) => !EXCLUDED_ACTIONS.has(id) && allActions.add(id));
 
   const finalData = generateFinalData(rawData, allActions, COLLECTION_ACTIONS);
   writeOutputFile(finalData, targetItemIds.size);
