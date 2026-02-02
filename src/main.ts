@@ -21,7 +21,7 @@ import {
   craftManager,
   battleGuard,
   tavernExpertManager,
-  wsSender,
+  quickActions,
 } from './features';
 import { mountResourceUtils } from './utils';
 import { appConfig } from './config/gm-settings';
@@ -89,6 +89,7 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   const skillAllocationEnabled = await appConfig.SKILL_ALLOCATION_ENABLED.get();
   const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
   const quickAlchemyEnabled = await appConfig.QUICK_ALCHEMY_ENABLED.get();
+  const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
 
   // 技能加点
   if (skillAllocationEnabled) {
@@ -126,12 +127,14 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
-  // WS 消息发送
-  buttons.push({
-    text: '📡 发送消息',
-    onClick: () => wsSender.openModal(),
-    order: 7,
-  });
+  // 快捷功能
+  if (quickActionsEnabled) {
+    buttons.push({
+      text: '⚡ 快捷功能',
+      onClick: () => quickActions.openModal(),
+      order: 7,
+    });
+  }
 
   // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
   if (tavernExpertEnabled && dataCache.get('tavern')) {
@@ -175,6 +178,7 @@ async function checkAndNotifyNoFeatures(): Promise<void> {
   const questManagerEnabled = await appConfig.QUEST_MANAGER_ENABLED.get();
   const monitorEnabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
   const autoBerryEnabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
+  const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
 
   const hasAnyFeatureEnabled =
     craftPanelEnabled ||
@@ -183,7 +187,8 @@ async function checkAndNotifyNoFeatures(): Promise<void> {
     battleGuardEnabled ||
     questManagerEnabled ||
     monitorEnabled ||
-    autoBerryEnabled;
+    autoBerryEnabled ||
+    quickActionsEnabled;
 
   if (!hasAnyFeatureEnabled) {
     toast.info('💡 当前未启用任何功能，请点击右下角浮动按钮进行配置', 3000);
@@ -276,5 +281,5 @@ void waitForElement('.user-dropdown').then(() => {
     await initUI();
     analytics.track('脚本', 'script_start', `v${GM.info.script.version}`);
     logger.success('UI 初始化完成');
-  }, 2000);
+  }, 1000);
 });

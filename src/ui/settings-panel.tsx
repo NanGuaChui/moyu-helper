@@ -157,6 +157,13 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
+            checked={settings[appConfig.QUICK_ACTIONS_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.QUICK_ACTIONS_ENABLED.key, v)}
+            label="快捷功能 - 快速执行一些Actions等"
+          />
+        </Row>
+        <Row>
+          <Checkbox
             checked={settings[appConfig.BATTLE_GUARD_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.BATTLE_GUARD_ENABLED.key, v)}
             label="战斗防护 - 自动禁用战斗功能"

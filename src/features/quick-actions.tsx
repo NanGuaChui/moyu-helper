@@ -1,5 +1,5 @@
 /**
- * WS 消息发送模块
+ * 快捷功能模块
  */
 
 import { render } from 'preact';
@@ -61,12 +61,12 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   },
 ];
 
-interface WsSenderModalProps {
+interface QuickActionsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
+function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
   const [selectedConfig, setSelectedConfig] = useState(MESSAGE_CONFIGS[0]?.label || '');
   const [loading, setLoading] = useState(false);
   const [userSelectionOptions, setUserSelectionOptions] = useState<Array<{ value: string; label: string }>>([]);
@@ -88,8 +88,8 @@ function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
         toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`);
         const data = step.getData(result, userSelection);
         result = await ws.sendAndListen(step.event, data, 10000);
-        logger.info(`[WS消息] ${step.event} 结果:`, result);
-        logger.info(`[WS消息] 步骤 ${i + 1}/${config.steps.length} 完成: ${step.event}`);
+        logger.info(`[快捷功能] ${step.event} 结果:`, result);
+        logger.info(`[快捷功能] 步骤 ${i + 1}/${config.steps.length} 完成: ${step.event}`);
 
         if (step.type === 'select' && step.getSelectionOptions) {
           const options = step.getSelectionOptions(result);
@@ -102,15 +102,15 @@ function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
           return;
         }
       }
-      logger.success(`[WS消息] ${config.label} 执行成功`);
+      logger.success(`[快捷功能] ${config.label} 执行成功`);
       toast.success(`${config.label} 执行成功`);
-      analytics.track('WS消息发送', config.label, '成功');
+      analytics.track('快捷功能', config.label, '成功');
       onClose();
     } catch (error) {
-      logger.error(`[WS消息] ${config.label} 执行失败`);
+      logger.error(`[快捷功能] ${config.label} 执行失败`);
       console.error(JSON.stringify(error, null, 4));
       toast.error(`${config.label} 执行失败`);
-      analytics.track('WS消息发送', config.label, '失败');
+      analytics.track('快捷功能', config.label, '失败');
     } finally {
       setLoading(false);
       toast.hideProgress();
@@ -133,7 +133,7 @@ function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="发送 WS 消息">
+    <Modal isOpen={isOpen} onClose={onClose} title="快捷功能">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {!waitingForSelection ? (
           <>
@@ -141,7 +141,7 @@ function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
               value={selectedConfig}
               onChange={setSelectedConfig}
               options={MESSAGE_CONFIGS.map((c) => ({ value: c.label, label: c.label }))}
-              placeholder="请选择消息类型"
+              placeholder="请选择功能"
             />
             <Button onClick={handleExecute} disabled={!selectedConfig || loading} style={{ width: '100%' }}>
               {loading ? '执行中...' : '执行'}
@@ -165,7 +165,7 @@ function WsSenderModal({ isOpen, onClose }: WsSenderModalProps) {
   );
 }
 
-class WsSender {
+class QuickActions {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
 
@@ -177,7 +177,7 @@ class WsSender {
 
     this.isOpen = true;
     this.render();
-    analytics.track('WS消息发送', 'open_modal');
+    analytics.track('快捷功能', 'open_modal');
   }
 
   private closeModal = (): void => {
@@ -187,8 +187,8 @@ class WsSender {
 
   private render(): void {
     if (!this.container) return;
-    render(<WsSenderModal isOpen={this.isOpen} onClose={this.closeModal} />, this.container);
+    render(<QuickActionsModal isOpen={this.isOpen} onClose={this.closeModal} />, this.container);
   }
 }
 
-export const wsSender = new WsSender();
+export const quickActions = new QuickActions();
