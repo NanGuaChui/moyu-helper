@@ -103,7 +103,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
   const calculateMaxMultiplier = async (): Promise<number> => {
     if (!recipeData) return 1;
     const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-    const inventory = await dataCache.getAsync('inventory', true);
+    const inventory = await dataCache.getAsync('inventory');
     let maxMult = MAX_LIMIT;
 
     for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
@@ -116,7 +116,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
   const calculateMaxTimes = async (mult: number): Promise<number> => {
     if (!recipeData) return MAX_LIMIT;
     const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-    const inventory = await dataCache.getAsync('inventory', true);
+    const inventory = await dataCache.getAsync('inventory');
     let maxT = MAX_LIMIT;
 
     for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
@@ -128,7 +128,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
 
   useEffect(() => {
     const loadOptions = async () => {
-      const inventory = await dataCache.getAsync('inventory', true);
+      const inventory = await dataCache.getAsync('inventory');
       const options = ALCHEMY_RECIPES.map((category) => ({
         label: category.label,
         options: category.items.map((item) => ({
@@ -153,7 +153,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
         return;
       }
 
-      const inventory = await dataCache.getAsync('inventory', true);
+      const inventory = await dataCache.getAsync('inventory');
       const recipe = findRecipeItem(selectedRecipe);
       setRecipeData(recipe);
 
@@ -220,7 +220,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       }
 
       const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-      const inventory = await dataCache.getAsync('inventory', true);
+      const inventory = await dataCache.getAsync('inventory');
       const preview: MaterialPreview[] = [];
 
       for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
