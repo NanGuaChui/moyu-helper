@@ -1,8 +1,8 @@
 /**
  * 技能点分配功能模块
  * 包含技能点分配管理器和面板
- * 
- * 2026/1/29 参照鱼类自动化养殖技术交流群文件 天赋加点2.js 重写 
+ *
+ * 2026/1/29 参照鱼类自动化养殖技术交流群文件 天赋加点2.js 重写
  */
 
 import { render } from 'preact';
@@ -75,13 +75,19 @@ function calculateTalentAllocation(
   totalPoints: number,
   luckyFirst: boolean,
   strategy: string,
-  specialty: string
+  specialty: string,
 ): { allocation: Record<string, number>; summary: AllocationResult['summary'] } {
   const allocation: Record<string, number> = {};
 
   // 定义基础节点
   const baseNodes: TalentNode[] = [
-    { id: 'l_efficiency_basics', name: '效率基础', tier: 1, maxLevel: 20, getCost: (level) => 1 + Math.floor(level / 4) },
+    {
+      id: 'l_efficiency_basics',
+      name: '效率基础',
+      tier: 1,
+      maxLevel: 20,
+      getCost: (level) => 1 + Math.floor(level / 4),
+    },
     { id: 'l_lucky_basics', name: '幸运', tier: 1, maxLevel: 10, getCost: () => 15 },
   ];
 
@@ -419,12 +425,20 @@ function calculateTalentAllocation(
         }
       }
 
-      if (allocation[`l_${specialty}_focus`] >= 7 && allocation[`l_${specialty}_extraReward`] === 0 && remainingPoints > 0) {
+      if (
+        allocation[`l_${specialty}_focus`] >= 7 &&
+        allocation[`l_${specialty}_extraReward`] === 0 &&
+        remainingPoints > 0
+      ) {
         tryUpgradeNode(`l_${specialty}_extraReward`);
       }
 
       if (totalPoints >= 28) {
-        if (allocation[`l_${specialty}_focus`] >= 7 && allocation[`l_${specialty}_returnResource`] === 0 && remainingPoints > 0) {
+        if (
+          allocation[`l_${specialty}_focus`] >= 7 &&
+          allocation[`l_${specialty}_returnResource`] === 0 &&
+          remainingPoints > 0
+        ) {
           tryUpgradeNode(`l_${specialty}_returnResource`);
         }
       }
@@ -576,8 +590,12 @@ function calculateTalentAllocation(
     return sum + cost;
   }, 0);
 
-  const returnChance = allocation[returnKey] ? ((0.008 + 0.002 * allocation[returnKey]) * 100).toFixed(2) + '%' : '0.00%';
-  const extraRewardChance = allocation[extraRewardKey] ? ((0.008 + 0.002 * allocation[extraRewardKey]) * 100).toFixed(2) + '%' : '0.00%';
+  const returnChance = allocation[returnKey]
+    ? ((0.008 + 0.002 * allocation[returnKey]) * 100).toFixed(2) + '%'
+    : '0.00%';
+  const extraRewardChance = allocation[extraRewardKey]
+    ? ((0.008 + 0.002 * allocation[extraRewardKey]) * 100).toFixed(2) + '%'
+    : '0.00%';
 
   return {
     allocation: result,
@@ -651,7 +669,10 @@ class SkillAllocationManager {
 
   async allocate(nodeId: string, treeId: string = 'life'): Promise<SkillAllocationSummary> {
     const timeoutMs = 8000;
-    const responsePromise = ws.sendAndListenCustom('skillTree:allocate', 'skillTree:summary:success', { treeId, nodeId });
+    const responsePromise = ws.sendAndListenCustom('skillTree:allocate', 'skillTree:summary:success', {
+      treeId,
+      nodeId,
+    });
     let response: any;
     try {
       response = await Promise.race([
@@ -824,7 +845,6 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
   const [strategy, setStrategy] = useState('产出优先');
   const [luckyFirst, setLuckyFirst] = useState(true);
 
-
   // 加载保存的设置
   useEffect(() => {
     const loadSettings = async () => {
@@ -879,7 +899,6 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
   ];
 
   const handleAllocate = async () => {
-
     // 点击后立即关闭窗口
     onClose();
 
@@ -887,7 +906,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
     try {
       toast.progress('正在获取专精点数信息...');
 
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await sleep(500);
 
       const result = await skillAllocationManager.autoAllocate(
         strategy,
@@ -934,7 +953,12 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
       </FormGroup>
 
       <FormGroup>
-        <Checkbox checked={luckyFirst} onChange={handleLuckyFirstChange} label="幸运优先" style={{ fontWeight: '600' }} />
+        <Checkbox
+          checked={luckyFirst}
+          onChange={handleLuckyFirstChange}
+          label="幸运优先"
+          style={{ fontWeight: '600' }}
+        />
       </FormGroup>
 
       {/* 原有的页面检查逻辑已注释,因为现在通过 WebSocket 通信不需要进入专精页面 */}
@@ -986,14 +1010,13 @@ export class SkillAllocationPanel {
     if (this.isOpen) return;
     this.isOpen = true;
 
-
     if (!this.container) {
       this.container = document.createElement('div');
       document.body.appendChild(this.container);
     }
 
     render(
-      <Modal isOpen={true} onClose={() => this.hide()} title="🌳 生活专精加点" >
+      <Modal isOpen={true} onClose={() => this.hide()} title="🌳 生活专精加点">
         <SkillAllocationPanelContent onClose={() => this.hide()} />
       </Modal>,
       this.container,

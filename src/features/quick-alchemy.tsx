@@ -6,7 +6,7 @@ import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
-import { analytics, getResourceDetail, debounce } from '@/utils';
+import { analytics, getResourceDetail, debounce, sleep } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
 import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, TAG_RESOURCE_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
@@ -199,7 +199,8 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       setTagSelections(newTagSelections);
       setTagOptions(newTagOptions);
 
-      await new Promise((resolve) => setTimeout(resolve, 0));
+      await sleep(0);
+
       const maxMult = await calculateMaxMultiplier();
       setMaxMultiplier(maxMult);
       setMultiplier(maxMult);

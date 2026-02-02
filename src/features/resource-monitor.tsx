@@ -9,7 +9,7 @@ import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, debounce } from '@/utils';
+import { analytics, debounce, sleep } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -191,7 +191,7 @@ class ResourceMonitor {
     const hasBought = await this.autoBuyBaseResources(problematicItems);
 
     if (hasBought) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await sleep(500);
       problematicItems = await this.findProblematicItems(gameResources);
     }
 

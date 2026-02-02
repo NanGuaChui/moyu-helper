@@ -7,6 +7,7 @@ import { toast } from '@/core/toast';
 import { logger } from '@/core/logger';
 import { eventBus, EVENTS } from '@/core/event-bus';
 import { appConfig } from '@/config/gm-settings';
+import { sleep } from '.';
 
 interface TaskQueueConfig {
   interval: number;
@@ -77,7 +78,7 @@ class TaskQueue {
 
     for (let i = seconds; i > 0; i--) {
       toast.progress(`已执行 ${this.taskCount} 个任务，暂停 ${i} 秒...`);
-      await new Promise((r) => setTimeout(r, 1000));
+      await sleep(1000);
     }
 
     toast.hideProgress();
@@ -106,7 +107,7 @@ class TaskQueue {
           if (this.taskCount % this.config.batchSize === 0 && this.queue.length > 0) {
             await this.waitForBatch();
           } else if (this.config.interval > 0) {
-            await new Promise((r) => setTimeout(r, this.config.interval));
+            await sleep(this.config.interval);
           }
         } catch (error) {
           logger.error('任务执行失败', error);
