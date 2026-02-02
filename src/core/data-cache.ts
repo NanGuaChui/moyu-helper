@@ -95,19 +95,28 @@ class DataCacheManager {
       if (tavern) this.updateCache('tavern', tavern);
     });
 
-    ws.on('dispatchInventoryInfo', debounce((data) => {
-      this.updateCache('inventory', this.filterInventory(data.payload.data));
-    }, 300));
+    ws.on(
+      'dispatchInventoryInfo',
+      debounce((data) => {
+        this.updateCache('inventory', this.filterInventory(data.payload.data));
+      }, 300),
+    );
 
-    ws.on('dispatchTaskQueueToClient', debounce((data) => {
-      const actionQueue = data.payload.data;
-      this.updateCache('actionQueue', actionQueue);
-      eventBus.emit('actionQueueUpdated', actionQueue);
-    }, 200));
+    ws.on(
+      'dispatchTaskQueueToClient',
+      debounce((data) => {
+        const actionQueue = data.payload.data;
+        this.updateCache('actionQueue', actionQueue);
+        eventBus.emit('actionQueueUpdated', actionQueue);
+      }, 200),
+    );
 
-    ws.on('tavern:getMyExperts:success', debounce((data) => {
-      this.updateCache('tavern', data.payload.data);
-    }, 500));
+    ws.on(
+      'tavern:getMyExperts:success',
+      debounce((data) => {
+        this.updateCache('tavern', data.payload.data);
+      }, 500),
+    );
   }
 
   /**
@@ -173,11 +182,7 @@ class DataCacheManager {
   /**
    * 处理超时
    */
-  private handleTimeout<K extends CacheKey>(
-    key: K,
-    cache: CacheEntry<CacheMap[K]>,
-    timer: NodeJS.Timeout,
-  ): void {
+  private handleTimeout<K extends CacheKey>(key: K, cache: CacheEntry<CacheMap[K]>, timer: NodeJS.Timeout): void {
     const index = cache.pendingRequests.findIndex((req) => req.timer === timer);
     if (index !== -1) {
       cache.pendingRequests.splice(index, 1);
@@ -230,9 +235,7 @@ class DataCacheManager {
    * 过滤库存数据，去掉 count 为 0 的物品以减小缓存大小
    */
   private filterInventory(inventory: Inventory): Inventory {
-    return Object.fromEntries(
-      Object.entries(inventory).filter(([, item]) => item.count > 0)
-    );
+    return Object.fromEntries(Object.entries(inventory).filter(([, item]) => item.count > 0));
   }
 }
 

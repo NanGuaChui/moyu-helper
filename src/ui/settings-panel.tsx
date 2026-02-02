@@ -88,7 +88,13 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
   };
 
   const handleSave = async () => {
-    await Promise.all(Object.values(appConfig).map((setting) => setting.set(settings[setting.key] as never)));
+    await Promise.all(
+      Object.values(appConfig).map((setting) => {
+        const value = settings[setting.key];
+        const isEqual = JSON.stringify(value) === JSON.stringify(setting.defaultValue);
+        return isEqual ? GM.deleteValue(setting.key) : setting.set(value as never);
+      }),
+    );
 
     if (resourceMonitor) {
       const resources: Record<string, ResourceConfig> = {};

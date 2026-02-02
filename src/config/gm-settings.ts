@@ -43,8 +43,8 @@ export const appConfig = {
     debug: false,
     info: false,
     success: false,
-    warn: true,
-    error: true,
+    warn: false,
+    error: false,
   }),
 
   // 自动使用浆果配置
