@@ -52,92 +52,56 @@
     ]
   },
   {
-    "value": "采集",
-    "label": "采集",
+    "value": "烹饪",
+    "label": "烹饪",
     "items": [
       {
-        "value": "collectHerb",
-        "label": "采草药",
-        "actionId": "collectHerb",
+        "value": "makeFishSoup",
+        "label": "熬制鱼汤",
+        "actionId": "makeFishSoup",
         "rewards": [
           {
-            "itemId": "herb",
-            "count": 2
+            "itemId": "fishSoup",
+            "count": 1
           },
           {
-            "itemId": "amberSap",
-            "count": 0.08
-          },
-          {
-            "itemId": "luckyCatBox",
-            "count": 0.01
+            "itemId": "mysteryCan",
+            "count": 0.05
           }
         ]
       },
       {
-        "value": "collectHoney",
-        "label": "采蜂蜜",
-        "actionId": "collectHoney",
+        "value": "makeDawnBlossomWine",
+        "label": "酿造晨露精酿",
+        "actionId": "makeDawnBlossomWine",
         "rewards": [
           {
-            "itemId": "honey",
-            "count": 3
-          },
-          {
-            "itemId": "luckyCatBox",
-            "count": 0.01
+            "itemId": "dawnBlossomWine",
+            "count": 1
           }
-        ]
-      },
-      {
-        "value": "collectFlower",
-        "label": "采集花草",
-        "actionId": "collectFlower",
-        "rewards": [
-          {
-            "itemId": "mushroom",
-            "count": 0.8
-          },
-          {
-            "itemId": "herb",
-            "count": 1.6
-          },
+        ],
+        "dependencies": [
           {
             "itemId": "dawnBlossom",
-            "count": 0.1
+            "count": 4
           },
           {
-            "itemId": "luminousMoss",
-            "count": 0.1
+            "itemId": "honey",
+            "count": 1
           },
           {
-            "itemId": "windBellHerb",
-            "count": 0.1
+            "itemId": "glassBottles",
+            "count": 1
           }
         ]
       },
       {
-        "value": "cutBamboo",
-        "label": "砍竹子",
-        "actionId": "cutBamboo",
+        "value": "makeBerryWine",
+        "label": "酿造浆果酒",
+        "actionId": "makeBerryWine",
         "rewards": [
           {
-            "itemId": "bamboo",
-            "count": 3
-          },
-          {
-            "itemId": "luckyCatBox",
-            "count": 0.01
-          }
-        ]
-      },
-      {
-        "value": "pickCloudCotton",
-        "label": "收集云絮",
-        "actionId": "pickCloudCotton",
-        "rewards": [
-          {
-            "itemId": "cloudCotton",
+            "itemId": "berryWine",
             "count": 1
           }
         ],
@@ -149,38 +113,198 @@
         ]
       },
       {
-        "value": "getSand",
-        "label": "挖沙",
-        "actionId": "getSand",
+        "value": "makeWindBellWine",
+        "label": "酿造铃语精酿",
+        "actionId": "makeWindBellWine",
         "rewards": [
           {
-            "itemId": "sand",
+            "itemId": "windBellWine",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "windBellHerb",
+            "count": 4
+          },
+          {
+            "itemId": "honey",
+            "count": 1
+          },
+          {
+            "itemId": "glassBottles",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "value": "makeCustardPudding",
+        "label": "制作蛋奶布丁",
+        "actionId": "makeCustardPudding",
+        "rewards": [
+          {
+            "itemId": "custardPudding",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "milk",
+            "count": 10
+          },
+          {
+            "itemId": "chickenEgg",
+            "count": 8
+          }
+        ]
+      },
+      {
+        "value": "makeRyeBread",
+        "label": "制作黑麦面包",
+        "actionId": "makeRyeBread",
+        "rewards": [
+          {
+            "itemId": "ryeBread",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "rye",
+            "count": 10
+          }
+        ]
+      },
+      {
+        "value": "makeCloudFluffCandy",
+        "label": "制作软软棉花糖",
+        "actionId": "makeCloudFluffCandy",
+        "rewards": [
+          {
+            "itemId": "cloudFluffCandy",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "cloudCotton",
             "count": 2
           },
           {
-            "itemId": "luckyCatBox",
-            "count": 0.01
+            "itemId": "honey",
+            "count": 4
+          },
+          {
+            "itemId": "slimeGel",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "value": "makeSimpleSalad",
+        "label": "制作野草沙拉",
+        "actionId": "makeSimpleSalad",
+        "rewards": [
+          {
+            "itemId": "simpleSalad",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "herb",
+            "count": 1
           }
         ]
       }
     ]
   },
   {
-    "value": "钓鱼",
-    "label": "钓鱼",
+    "value": "养殖",
+    "label": "养殖",
     "items": [
       {
-        "value": "catFishing",
-        "label": "猫咪捕鱼",
-        "actionId": "catFishing",
+        "value": "pearlCultivation",
+        "label": "培育珍珠",
+        "actionId": "pearlCultivation",
         "rewards": [
           {
-            "itemId": "fish",
+            "itemId": "pearl",
+            "count": 1
+          },
+          {
+            "itemId": "moonPearl",
+            "count": 0.05
+          },
+          {
+            "itemId": "blackPearl",
+            "count": 0.01
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "sand",
+            "count": 15
+          },
+          {
+            "itemId": "nutrientEssence",
+            "count": 10
+          }
+        ]
+      },
+      {
+        "value": "sericulture",
+        "label": "养蚕",
+        "actionId": "sericulture",
+        "rewards": [
+          {
+            "itemId": "silk",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "value": "farmingSheep",
+        "label": "照料绵羊",
+        "actionId": "farmingSheep",
+        "rewards": [
+          {
+            "itemId": "wool",
             "count": 2
           },
           {
-            "itemId": "catHairball",
-            "count": 0.2
+            "itemId": "animalManure",
+            "count": 0.24
+          }
+        ]
+      },
+      {
+        "value": "farmingCow",
+        "label": "照料奶牛",
+        "actionId": "farmingCow",
+        "rewards": [
+          {
+            "itemId": "milk",
+            "count": 2
+          },
+          {
+            "itemId": "animalManure",
+            "count": 0.24
+          }
+        ]
+      },
+      {
+        "value": "farmingChicken",
+        "label": "照料小鸡仔",
+        "actionId": "farmingChicken",
+        "rewards": [
+          {
+            "itemId": "chickenEgg",
+            "count": 2
+          },
+          {
+            "itemId": "animalManure",
+            "count": 0.1
           }
         ]
       }
@@ -360,558 +484,6 @@
     ]
   },
   {
-    "value": "炼金",
-    "label": "炼金",
-    "items": [
-      {
-        "value": "refinePureEssence",
-        "label": "提炼纯净精华",
-        "actionId": "refinePureEssence",
-        "rewards": [
-          {
-            "itemId": "pureEssence",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "starDust",
-            "count": 10
-          },
-          {
-            "itemId": "luminousMoss",
-            "count": 2
-          },
-          {
-            "itemId": "amberSap",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "value": "refineMoonlightEssence",
-        "label": "提炼月光精华",
-        "actionId": "refineMoonlightEssence",
-        "rewards": [
-          {
-            "itemId": "mysticalEssence",
-            "count": 1
-          },
-          {
-            "itemId": "catHairball",
-            "count": 2.4000000000000004
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "moonlightBell",
-            "count": 1
-          },
-          {
-            "itemId": "herb",
-            "count": 10
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "value": "烹饪",
-    "label": "烹饪",
-    "items": [
-      {
-        "value": "makeFishSoup",
-        "label": "熬制鱼汤",
-        "actionId": "makeFishSoup",
-        "rewards": [
-          {
-            "itemId": "fishSoup",
-            "count": 1
-          },
-          {
-            "itemId": "mysteryCan",
-            "count": 0.05
-          }
-        ]
-      },
-      {
-        "value": "makeDawnBlossomWine",
-        "label": "酿造晨露精酿",
-        "actionId": "makeDawnBlossomWine",
-        "rewards": [
-          {
-            "itemId": "dawnBlossomWine",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "dawnBlossom",
-            "count": 4
-          },
-          {
-            "itemId": "honey",
-            "count": 1
-          },
-          {
-            "itemId": "glassBottles",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "value": "makeBerryWine",
-        "label": "酿造浆果酒",
-        "actionId": "makeBerryWine",
-        "rewards": [
-          {
-            "itemId": "berryWine",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "glassBottles",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "value": "makeWindBellWine",
-        "label": "酿造铃语精酿",
-        "actionId": "makeWindBellWine",
-        "rewards": [
-          {
-            "itemId": "windBellWine",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "windBellHerb",
-            "count": 4
-          },
-          {
-            "itemId": "honey",
-            "count": 1
-          },
-          {
-            "itemId": "glassBottles",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "value": "makeCustardPudding",
-        "label": "制作蛋奶布丁",
-        "actionId": "makeCustardPudding",
-        "rewards": [
-          {
-            "itemId": "custardPudding",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "milk",
-            "count": 10
-          },
-          {
-            "itemId": "chickenEgg",
-            "count": 8
-          }
-        ]
-      },
-      {
-        "value": "makeRyeBread",
-        "label": "制作黑麦面包",
-        "actionId": "makeRyeBread",
-        "rewards": [
-          {
-            "itemId": "ryeBread",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "rye",
-            "count": 10
-          }
-        ]
-      },
-      {
-        "value": "makeCloudFluffCandy",
-        "label": "制作软软棉花糖",
-        "actionId": "makeCloudFluffCandy",
-        "rewards": [
-          {
-            "itemId": "cloudFluffCandy",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "cloudCotton",
-            "count": 2
-          },
-          {
-            "itemId": "honey",
-            "count": 4
-          },
-          {
-            "itemId": "slimeGel",
-            "count": 1
-          }
-        ]
-      },
-      {
-        "value": "makeSimpleSalad",
-        "label": "制作野草沙拉",
-        "actionId": "makeSimpleSalad",
-        "rewards": [
-          {
-            "itemId": "simpleSalad",
-            "count": 1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "herb",
-            "count": 1
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "value": "探索",
-    "label": "探索",
-    "items": [
-      {
-        "value": "archaeological",
-        "label": "考古挖掘",
-        "actionId": "archaeological",
-        "rewards": [
-          {
-            "itemId": "catAntiqueShard",
-            "count": 2
-          },
-          {
-            "itemId": "treasureMap",
-            "count": 0.8
-          },
-          {
-            "itemId": "catStatue",
-            "count": 1
-          },
-          {
-            "itemId": "ancientCatBowl",
-            "count": 0.1
-          },
-          {
-            "itemId": "catPawCoin",
-            "count": 0.01
-          },
-          {
-            "itemId": "catScroll",
-            "count": 0.05
-          }
-        ]
-      },
-      {
-        "value": "exploreNewArea",
-        "label": "探索",
-        "actionId": "exploreNewArea",
-        "rewards": [
-          {
-            "itemId": "treasureMap",
-            "count": 0.5
-          },
-          {
-            "itemId": "catHairball",
-            "count": 4
-          },
-          {
-            "itemId": "berry",
-            "count": 3.2
-          },
-          {
-            "itemId": "honey",
-            "count": 1.7999999999999998
-          }
-        ]
-      },
-      {
-        "value": "treasureHunt",
-        "label": "寻宝",
-        "actionId": "treasureHunt",
-        "rewards": [
-          {
-            "itemId": "catnipGem",
-            "count": 1
-          },
-          {
-            "itemId": "mysticalEssence",
-            "count": 1
-          },
-          {
-            "itemId": "dreamFeatherBag",
-            "count": 0.1
-          },
-          {
-            "itemId": "luckyCatCharm",
-            "count": 0.2
-          },
-          {
-            "itemId": "whiskerFeather",
-            "count": 0.1
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "treasureMap",
-            "count": 1
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "value": "特殊制造",
-    "label": "特殊制造",
-    "items": [
-      {
-        "value": "brewMysticalCatnipPotion",
-        "label": "炼制猫薄荷药剂",
-        "actionId": "brewMysticalCatnipPotion",
-        "rewards": [
-          {
-            "itemId": "catPotion",
-            "count": 1
-          },
-          {
-            "itemId": "moonlightBell",
-            "count": 0.3
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "catnipGem",
-            "count": 1
-          },
-          {
-            "itemId": "mysticalEssence",
-            "count": 1
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "value": "挖掘",
-    "label": "挖掘",
-    "items": [
-      {
-        "value": "miningFluffstone",
-        "label": "开采绒毛岩",
-        "actionId": "miningFluffstone",
-        "rewards": [
-          {
-            "itemId": "gold",
-            "count": 0.30000000000000004
-          },
-          {
-            "itemId": "stone",
-            "count": 8
-          },
-          {
-            "itemId": "fluffstone",
-            "count": 0.8
-          }
-        ]
-      },
-      {
-        "value": "miningFishscaleMineral",
-        "label": "开采鱼鳞矿",
-        "actionId": "miningFishscaleMineral",
-        "rewards": [
-          {
-            "itemId": "gold",
-            "count": 0.30000000000000004
-          },
-          {
-            "itemId": "stone",
-            "count": 8
-          },
-          {
-            "itemId": "fishscaleMineral",
-            "count": 0.8
-          }
-        ]
-      },
-      {
-        "value": "miningWithShaft",
-        "label": "矿井采矿",
-        "actionId": "miningWithShaft",
-        "rewards": [
-          {
-            "itemId": "gold",
-            "count": 0.05
-          },
-          {
-            "itemId": "stone",
-            "count": 10
-          },
-          {
-            "itemId": "iron",
-            "count": 8
-          },
-          {
-            "itemId": "coal",
-            "count": 8
-          }
-        ]
-      },
-      {
-        "value": "deepMining",
-        "label": "深度开采",
-        "actionId": "deepMining",
-        "rewards": [
-          {
-            "itemId": "gold",
-            "count": 1
-          },
-          {
-            "itemId": "iron",
-            "count": 6
-          },
-          {
-            "itemId": "silverOre",
-            "count": 3.2
-          },
-          {
-            "itemId": "mithrilOre",
-            "count": 2
-          }
-        ]
-      },
-      {
-        "value": "mining",
-        "label": "挖矿",
-        "actionId": "mining",
-        "rewards": [
-          {
-            "itemId": "gold",
-            "count": 0.05
-          },
-          {
-            "itemId": "stone",
-            "count": 1
-          },
-          {
-            "itemId": "iron",
-            "count": 0.5
-          },
-          {
-            "itemId": "coal",
-            "count": 0.5
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "value": "养殖",
-    "label": "养殖",
-    "items": [
-      {
-        "value": "pearlCultivation",
-        "label": "培育珍珠",
-        "actionId": "pearlCultivation",
-        "rewards": [
-          {
-            "itemId": "pearl",
-            "count": 1
-          },
-          {
-            "itemId": "moonPearl",
-            "count": 0.05
-          },
-          {
-            "itemId": "blackPearl",
-            "count": 0.01
-          }
-        ],
-        "dependencies": [
-          {
-            "itemId": "sand",
-            "count": 15
-          },
-          {
-            "itemId": "nutrientEssence",
-            "count": 10
-          }
-        ]
-      },
-      {
-        "value": "sericulture",
-        "label": "养蚕",
-        "actionId": "sericulture",
-        "rewards": [
-          {
-            "itemId": "silk",
-            "count": 2
-          }
-        ]
-      },
-      {
-        "value": "farmingSheep",
-        "label": "照料绵羊",
-        "actionId": "farmingSheep",
-        "rewards": [
-          {
-            "itemId": "wool",
-            "count": 2
-          },
-          {
-            "itemId": "animalManure",
-            "count": 0.24
-          }
-        ]
-      },
-      {
-        "value": "farmingCow",
-        "label": "照料奶牛",
-        "actionId": "farmingCow",
-        "rewards": [
-          {
-            "itemId": "milk",
-            "count": 2
-          },
-          {
-            "itemId": "animalManure",
-            "count": 0.24
-          }
-        ]
-      },
-      {
-        "value": "farmingChicken",
-        "label": "照料小鸡仔",
-        "actionId": "farmingChicken",
-        "rewards": [
-          {
-            "itemId": "chickenEgg",
-            "count": 2
-          },
-          {
-            "itemId": "animalManure",
-            "count": 0.1
-          }
-        ]
-      }
-    ]
-  },
-  {
     "value": "制造",
     "label": "制造",
     "items": [
@@ -1077,27 +649,92 @@
     ]
   },
   {
-    "value": "种植",
-    "label": "种植",
+    "value": "探索",
+    "label": "探索",
     "items": [
       {
-        "value": "dawnBlossom",
-        "label": "晨露花",
-        "actionId": "dawnBlossom",
+        "value": "archaeological",
+        "label": "考古挖掘",
+        "actionId": "archaeological",
         "rewards": [
           {
-            "itemId": "dawnBlossom",
+            "itemId": "catAntiqueShard",
+            "count": 2
+          },
+          {
+            "itemId": "treasureMap",
+            "count": 0.8
+          },
+          {
+            "itemId": "catStatue",
             "count": 1
+          },
+          {
+            "itemId": "ancientCatBowl",
+            "count": 0.1
+          },
+          {
+            "itemId": "catPawCoin",
+            "count": 0.01
+          },
+          {
+            "itemId": "catScroll",
+            "count": 0.05
           }
         ]
       },
       {
-        "value": "windBellHerb",
-        "label": "风铃草",
-        "actionId": "windBellHerb",
+        "value": "exploreNewArea",
+        "label": "探索",
+        "actionId": "exploreNewArea",
         "rewards": [
           {
-            "itemId": "windBellHerb",
+            "itemId": "treasureMap",
+            "count": 0.5
+          },
+          {
+            "itemId": "catHairball",
+            "count": 4
+          },
+          {
+            "itemId": "berry",
+            "count": 3.2
+          },
+          {
+            "itemId": "honey",
+            "count": 1.7999999999999998
+          }
+        ]
+      },
+      {
+        "value": "treasureHunt",
+        "label": "寻宝",
+        "actionId": "treasureHunt",
+        "rewards": [
+          {
+            "itemId": "catnipGem",
+            "count": 1
+          },
+          {
+            "itemId": "mysticalEssence",
+            "count": 1
+          },
+          {
+            "itemId": "dreamFeatherBag",
+            "count": 0.1
+          },
+          {
+            "itemId": "luckyCatCharm",
+            "count": 0.2
+          },
+          {
+            "itemId": "whiskerFeather",
+            "count": 0.1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "treasureMap",
             "count": 1
           }
         ]
@@ -1195,6 +832,382 @@
           {
             "itemId": "experienceOfIntelligence",
             "count": 25
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "value": "炼金",
+    "label": "炼金",
+    "items": [
+      {
+        "value": "refinePureEssence",
+        "label": "提炼纯净精华",
+        "actionId": "refinePureEssence",
+        "rewards": [
+          {
+            "itemId": "pureEssence",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "starDust",
+            "count": 10
+          },
+          {
+            "itemId": "luminousMoss",
+            "count": 2
+          },
+          {
+            "itemId": "amberSap",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "value": "refineMoonlightEssence",
+        "label": "提炼月光精华",
+        "actionId": "refineMoonlightEssence",
+        "rewards": [
+          {
+            "itemId": "mysticalEssence",
+            "count": 1
+          },
+          {
+            "itemId": "catHairball",
+            "count": 2.4000000000000004
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "moonlightBell",
+            "count": 1
+          },
+          {
+            "itemId": "herb",
+            "count": 10
+          }
+        ]
+      },
+      {
+        "value": "refineGenesisEssence",
+        "label": "提炼造物精华",
+        "actionId": "refineGenesisEssence",
+        "rewards": [
+          {
+            "itemId": "genesisEssence",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "sewingEssence",
+            "count": 4
+          },
+          {
+            "itemId": "craftingEssence",
+            "count": 4
+          },
+          {
+            "itemId": "nutrientEssence",
+            "count": 4
+          },
+          {
+            "itemId": "knowledgeEssence",
+            "count": 4
+          },
+          {
+            "itemId": "pure_monster_essence_lv1",
+            "count": 4
+          },
+          {
+            "itemId": "mysticalEssence",
+            "count": 4
+          },
+          {
+            "itemId": "catRelic",
+            "count": 2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "value": "采集",
+    "label": "采集",
+    "items": [
+      {
+        "value": "collectHerb",
+        "label": "采草药",
+        "actionId": "collectHerb",
+        "rewards": [
+          {
+            "itemId": "herb",
+            "count": 2
+          },
+          {
+            "itemId": "amberSap",
+            "count": 0.08
+          },
+          {
+            "itemId": "luckyCatBox",
+            "count": 0.01
+          }
+        ]
+      },
+      {
+        "value": "collectHoney",
+        "label": "采蜂蜜",
+        "actionId": "collectHoney",
+        "rewards": [
+          {
+            "itemId": "honey",
+            "count": 3
+          },
+          {
+            "itemId": "luckyCatBox",
+            "count": 0.01
+          }
+        ]
+      },
+      {
+        "value": "collectFlower",
+        "label": "采集花草",
+        "actionId": "collectFlower",
+        "rewards": [
+          {
+            "itemId": "mushroom",
+            "count": 0.8
+          },
+          {
+            "itemId": "herb",
+            "count": 1.6
+          },
+          {
+            "itemId": "dawnBlossom",
+            "count": 0.1
+          },
+          {
+            "itemId": "luminousMoss",
+            "count": 0.1
+          },
+          {
+            "itemId": "windBellHerb",
+            "count": 0.1
+          }
+        ]
+      },
+      {
+        "value": "cutBamboo",
+        "label": "砍竹子",
+        "actionId": "cutBamboo",
+        "rewards": [
+          {
+            "itemId": "bamboo",
+            "count": 3
+          },
+          {
+            "itemId": "luckyCatBox",
+            "count": 0.01
+          }
+        ]
+      },
+      {
+        "value": "pickCloudCotton",
+        "label": "收集云絮",
+        "actionId": "pickCloudCotton",
+        "rewards": [
+          {
+            "itemId": "cloudCotton",
+            "count": 1
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "glassBottles",
+            "count": 1
+          }
+        ]
+      },
+      {
+        "value": "getSand",
+        "label": "挖沙",
+        "actionId": "getSand",
+        "rewards": [
+          {
+            "itemId": "sand",
+            "count": 2
+          },
+          {
+            "itemId": "luckyCatBox",
+            "count": 0.01
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "value": "钓鱼",
+    "label": "钓鱼",
+    "items": [
+      {
+        "value": "catFishing",
+        "label": "猫咪捕鱼",
+        "actionId": "catFishing",
+        "rewards": [
+          {
+            "itemId": "fish",
+            "count": 2
+          },
+          {
+            "itemId": "catHairball",
+            "count": 0.2
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "value": "挖掘",
+    "label": "挖掘",
+    "items": [
+      {
+        "value": "miningFluffstone",
+        "label": "开采绒毛岩",
+        "actionId": "miningFluffstone",
+        "rewards": [
+          {
+            "itemId": "gold",
+            "count": 0.30000000000000004
+          },
+          {
+            "itemId": "stone",
+            "count": 8
+          },
+          {
+            "itemId": "fluffstone",
+            "count": 0.8
+          }
+        ]
+      },
+      {
+        "value": "miningFishscaleMineral",
+        "label": "开采鱼鳞矿",
+        "actionId": "miningFishscaleMineral",
+        "rewards": [
+          {
+            "itemId": "gold",
+            "count": 0.30000000000000004
+          },
+          {
+            "itemId": "stone",
+            "count": 8
+          },
+          {
+            "itemId": "fishscaleMineral",
+            "count": 0.8
+          }
+        ]
+      },
+      {
+        "value": "miningWithShaft",
+        "label": "矿井采矿",
+        "actionId": "miningWithShaft",
+        "rewards": [
+          {
+            "itemId": "gold",
+            "count": 0.05
+          },
+          {
+            "itemId": "stone",
+            "count": 10
+          },
+          {
+            "itemId": "iron",
+            "count": 8
+          },
+          {
+            "itemId": "coal",
+            "count": 8
+          }
+        ]
+      },
+      {
+        "value": "deepMining",
+        "label": "深度开采",
+        "actionId": "deepMining",
+        "rewards": [
+          {
+            "itemId": "gold",
+            "count": 1
+          },
+          {
+            "itemId": "iron",
+            "count": 6
+          },
+          {
+            "itemId": "silverOre",
+            "count": 3.2
+          },
+          {
+            "itemId": "mithrilOre",
+            "count": 2
+          }
+        ]
+      },
+      {
+        "value": "mining",
+        "label": "挖矿",
+        "actionId": "mining",
+        "rewards": [
+          {
+            "itemId": "gold",
+            "count": 0.05
+          },
+          {
+            "itemId": "stone",
+            "count": 1
+          },
+          {
+            "itemId": "iron",
+            "count": 0.5
+          },
+          {
+            "itemId": "coal",
+            "count": 0.5
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "value": "特殊制造",
+    "label": "特殊制造",
+    "items": [
+      {
+        "value": "brewMysticalCatnipPotion",
+        "label": "炼制猫薄荷药剂",
+        "actionId": "brewMysticalCatnipPotion",
+        "rewards": [
+          {
+            "itemId": "catPotion",
+            "count": 1
+          },
+          {
+            "itemId": "moonlightBell",
+            "count": 0.3
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "catnipGem",
+            "count": 1
+          },
+          {
+            "itemId": "mysticalEssence",
+            "count": 1
           }
         ]
       }

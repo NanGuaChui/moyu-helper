@@ -15,54 +15,58 @@ const REQUIRED_ACTIONS = [
   'refinePureEssence',
   'compileBookOfWorkSkillTreePoint',
   'compileBookOfBattleSkillTreePoint',
+  'refineGenesisEssence',
 ];
 const COLLECTION_ACTIONS = ['reading', 'swim', 'charcoalMaking', 'pickRainbowShard'];
-const EXCLUDED_ACTIONS = new Set(['farming', 'farmingRye']);
+const EXCLUDED_ACTIONS = new Set(['farming', 'farmingRye', 'windBellHerb', 'dawnBlossom']);
 const SPECIAL_CATEGORY_MAPPING = { brewMysticalCatnipPotion: '特殊制造' };
 
 // 一级分类定义
 const PRIMARY_CATEGORIES = [
-  { key: '采集', tags: ['gathering'], secondaries: ['种植', '野外', '农田', '海边', '天空'] },
-  { key: '钓鱼', tags: ['fishing'], secondaries: ['近海'] },
-  { key: '养殖', tags: ['farmingAnimal'], secondaries: ['通用'] },
-  { key: '挖掘', tags: ['mining'], secondaries: ['矿洞', '神秘矿洞'] },
   { key: '烹饪', tags: ['cooking'], secondaries: ['通用', '美食', '鱼饵', '酿造', '饮品', '罐头', '甜点'] },
-  {
-    key: '制造',
-    tags: ['manufacturing', 'forging'],
-    secondaries: ['工具', '通用', '武器', '法杖', '饰品', '道具', '渔具', '猫舍家具', '文具'],
-  },
+  { key: '养殖', tags: ['farmingAnimal'], secondaries: ['通用'] },
   {
     key: '缝制',
     tags: ['sewing'],
     secondaries: ['基础缝纫', '羊毛制品', '工作服', '饰品', '丝制品', '特殊物品', '绒毛制品'],
   },
-  { key: '种植', tags: ['planting'], secondaries: ['森林'] },
   {
-    key: '炼金',
-    tags: ['mysterious'],
-    secondaries: ['猫咪自学点金术', '基础点金术', '精华点金术', '提炼', '制药', '净化'],
+    key: '制造',
+    tags: ['manufacturing', 'forging'],
+    secondaries: ['工具', '通用', '武器', '法杖', '饰品', '道具', '渔具', '猫舍家具', '文具'],
   },
-  { key: '特殊制造', tags: ['knowledge'] },
   { key: '探索', tags: ['exploring'] },
   {
     key: '自我提升',
     tags: ['dexterity', 'stamina', 'strength', 'intelligence', 'attacking', 'defencing'],
     secondaries: ['锻炼', '实战', '室内训练', '学习'],
   },
+  {
+    key: '炼金',
+    tags: ['mysterious'],
+    secondaries: ['猫咪自学点金术', '基础点金术', '精华点金术', '提炼', '制药', '净化'],
+  },
+  { key: '采集', tags: ['gathering'], secondaries: ['种植', '野外', '农田', '海边', '天空'] },
+  { key: '钓鱼', tags: ['fishing'], secondaries: ['近海'] },
+  { key: '挖掘', tags: ['mining'], secondaries: ['矿洞', '神秘矿洞'] },
+
+  { key: '种植', tags: ['planting'], secondaries: ['森林'] },
+  { key: '特殊制造', tags: ['knowledge'] },
 ];
 
 // 构建分类映射
 const CATEGORY_MAPS = (() => {
   const secondary = {};
   const tag = {};
+  const order = {};
 
-  PRIMARY_CATEGORIES.forEach(({ key, tags, secondaries }) => {
+  PRIMARY_CATEGORIES.forEach(({ key, tags, secondaries }, index) => {
     tags.forEach((t) => (tag[t] = key));
     secondaries?.forEach((s) => (secondary[s] = key));
+    order[key] = index;
   });
 
-  return { secondary, tag };
+  return { secondary, tag, order };
 })();
 
 // 读取并解析源数据
@@ -202,10 +206,11 @@ function getActionCategory(actionId, action) {
 
 // 转换 action 为目标格式
 function transformAction(actionId, action) {
-  const rewards = action.rewards?.map((r) => ({
-    itemId: r.id,
-    count: (r.range?.min || r.count || 1) * (r.percent || 1),
-  })) || [];
+  const rewards =
+    action.rewards?.map((r) => ({
+      itemId: r.id,
+      count: (r.range?.min || r.count || 1) * (r.percent || 1),
+    })) || [];
 
   const dependencies = extractDependencies(action).map((req) => ({
     itemId: req.id,
@@ -245,9 +250,13 @@ function generateFinalData(rawData, normalActionIds, collectionActionIds) {
     (grouped[action.category] ||= []).push(action);
   });
 
-  // 排序并转换
+  // 按 PRIMARY_CATEGORIES 顺序排序并转换
   const categories = Object.entries(grouped)
-    .sort(([a], [b]) => a.localeCompare(b, 'zh-CN'))
+    .sort(([a], [b]) => {
+      const orderA = CATEGORY_MAPS.order[a] ?? 999;
+      const orderB = CATEGORY_MAPS.order[b] ?? 999;
+      return orderA - orderB || a.localeCompare(b, 'zh-CN');
+    })
     .map(([category, items]) => ({
       value: category,
       label: category,
