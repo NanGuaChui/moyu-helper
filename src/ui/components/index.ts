@@ -7,3 +7,4 @@ export * from './Modal';
 export * from './Row';
 export * from './Section';
 export * from './Select';
+export * from './Slider';

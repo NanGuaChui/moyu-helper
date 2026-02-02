@@ -11,6 +11,7 @@
 import { logger } from './logger';
 import { ws } from './websocket';
 import { eventBus } from './event-bus';
+import { debounce } from '@/utils';
 import type { UserInfo, Inventory, CacheEntry, TavernExpert } from '@/types/game-data';
 
 /**
@@ -100,24 +101,33 @@ class DataCacheManager {
       }
     });
 
-    // 监听库存更新事件
-    ws.on('dispatchInventoryInfo', (data) => {
-      const inventory = this.filterInventory(data.payload.data);
-      this.updateCache('inventory', inventory);
-    });
+    // 监听库存更新事件（防抖 300ms）
+    ws.on(
+      'dispatchInventoryInfo',
+      debounce((data) => {
+        const inventory = this.filterInventory(data.payload.data);
+        this.updateCache('inventory', inventory);
+      }, 300),
+    );
 
-    // 监听行动队列更新事件
-    ws.on('dispatchTaskQueueToClient', (data) => {
-      const actionQueue = data.payload.data;
-      this.updateCache('actionQueue', actionQueue);
-      eventBus.emit('actionQueueUpdated', actionQueue);
-    });
+    // 监听行动队列更新事件（防抖 200ms）
+    ws.on(
+      'dispatchTaskQueueToClient',
+      debounce((data) => {
+        const actionQueue = data.payload.data;
+        this.updateCache('actionQueue', actionQueue);
+        eventBus.emit('actionQueueUpdated', actionQueue);
+      }, 200),
+    );
 
-    // 监听酒馆专家列表更新
-    ws.on('tavern:getMyExperts:success', (data) => {
-      const experts = data.payload.data;
-      this.updateCache('tavern', experts);
-    });
+    // 监听酒馆专家列表更新（防抖 500ms）
+    ws.on(
+      'tavern:getMyExperts:success',
+      debounce((data) => {
+        const experts = data.payload.data;
+        this.updateCache('tavern', experts);
+      }, 500),
+    );
 
     this.isInitialized = true;
     logger.success('数据缓存管理器初始化完成');

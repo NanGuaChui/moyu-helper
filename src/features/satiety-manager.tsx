@@ -6,13 +6,14 @@
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics } from '@/utils';
+import { analytics, debounce } from '@/utils';
 
 class SatietyManager {
   private isInitialized = false;
   private isChecking = false;
   private enabled = false;
   private foodType: FoodType = 'berry';
+  private debouncedCheck = debounce(() => this.checkAndUseFood(), 1000);
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -21,11 +22,11 @@ class SatietyManager {
     this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
 
     dataCache.getAsync('inventory').then(() => {
-      this.checkAndUseFood();
+      this.debouncedCheck();
     });
 
     ws.on('dispatchInventoryInfo', () => {
-      this.checkAndUseFood();
+      this.debouncedCheck();
     });
 
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());

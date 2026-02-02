@@ -9,7 +9,7 @@ import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics } from '@/utils';
+import { analytics, debounce } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -95,6 +95,7 @@ class ResourceMonitor {
   private enabled = false;
   private autoBuyEnabled = false;
   private nameToIdCache: Map<string, string> | null = null;
+  private debouncedCheck = debounce((persistent: boolean) => this.performCheck(true, persistent), 500);
 
   constructor() {
     this.resources = this.flattenCategories(DEFAULT_RESOURCES);
@@ -169,7 +170,7 @@ class ResourceMonitor {
     }
 
     try {
-      await this.performCheck(true, persistent);
+      this.debouncedCheck(persistent);
     } catch (error) {
       logger.error('获取库存数据失败', error);
       toast.error('获取库存数据失败，请稍后重试');

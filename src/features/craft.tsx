@@ -4,12 +4,12 @@
  */
 
 import { render } from 'preact';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
 import { logger, toast, ws, dataCache } from '@/core';
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
-import { analytics } from '@/utils';
+import { analytics, debounce, throttle } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
 interface CraftStep {
@@ -124,21 +124,31 @@ class CraftManager {
         const item = this.findByActionId(step.actionId);
         if (!item) continue;
 
+        let count = step.count;
+
+        // 目标物品始终制造，不检查库存和产出
+        if (step.actionId === targetActionId) {
+          optimized.unshift({ ...step, count });
+          if (item.dependencies) {
+            for (const dep of item.dependencies) {
+              resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + dep.count * count);
+            }
+          }
+          continue;
+        }
+
+        // 依赖项需要检查产出和库存
         const mainReward = item.rewards[0];
         if (!mainReward) continue;
 
-        let count = step.count;
+        const stock = await dataCache.getItemCountAsync(mainReward.itemId);
+        const need = resourceNeeds.get(mainReward.itemId) || 0;
+        const netNeed = Math.max(0, need - stock);
+        count = Math.ceil(netNeed / mainReward.count);
 
-        if (step.actionId !== targetActionId) {
-          const stock = await dataCache.getItemCountAsync(mainReward.itemId);
-          const need = resourceNeeds.get(mainReward.itemId) || 0;
-          const netNeed = Math.max(0, need - stock);
-          count = Math.ceil(netNeed / mainReward.count);
-
-          if (count <= 0) {
-            logger.info(`跳过 ${step.name}（库存充足）`);
-            continue;
-          }
+        if (count <= 0) {
+          logger.info(`跳过 ${step.name}（库存充足）`);
+          continue;
         }
 
         optimized.unshift({ ...step, count });
@@ -405,55 +415,79 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
     void loadData();
   }, []);
 
+  const debouncedUpdatePreview = useMemo(
+    () =>
+      debounce(async (item: string, num: number) => {
+        if (!item) {
+          setPreview('请选择物品');
+          return;
+        }
+
+        const plan = craftManager.buildPlan(item, num);
+        if (plan.length === 0) {
+          setPreview('⚠️ 无法计算制造计划');
+          return;
+        }
+
+        const optimized = await craftManager.optimizePlan(plan, item);
+        if (optimized.length === 0) {
+          setPreview('✅ 库存充足，无需制造');
+          return;
+        }
+
+        const stepsHTML = optimized
+          .map((step: any, index: number) => `${index + 1}. ${step.name} ×${step.count}`)
+          .join('\n');
+        setPreview(stepsHTML);
+      }, 300),
+    [],
+  );
+
   useEffect(() => {
-    const updatePreview = async () => {
-      if (!selectedItem) {
-        setPreview('请选择物品');
-        return;
-      }
+    debouncedUpdatePreview(selectedItem, count);
+  }, [selectedItem, count, debouncedUpdatePreview]);
 
-      const plan = craftManager.buildPlan(selectedItem, count);
-      if (plan.length === 0) {
-        setPreview('⚠️ 无法计算制造计划');
-        return;
-      }
+  const handleCountChange = useMemo(
+    () =>
+      debounce((v: string) => {
+        setCount(parseInt(v) || 1);
+      }, 300),
+    [],
+  );
 
-      const optimized = await craftManager.optimizePlan(plan, selectedItem);
-      if (optimized.length === 0) {
-        setPreview('✅ 库存充足，无需制造');
-        return;
-      }
+  const handleQuickAdd = useMemo(
+    () =>
+      throttle((value: number) => {
+        setCount((prev) => prev + value);
+      }, 300),
+    [],
+  );
 
-      const stepsHTML = optimized
-        .map((step: any, index: number) => `${index + 1}. ${step.name} ×${step.count}`)
-        .join('\n');
-      setPreview(stepsHTML);
-    };
+  const handleCraft = useMemo(
+    () =>
+      throttle(async () => {
+        if (!selectedItem) {
+          toast.warning('请先选择要制造的物品');
+          return;
+        }
+        onClose();
+        await craftManager.craftWithDependencies(selectedItem, count, clearTasks);
+      }, 1000),
+    [selectedItem, count, clearTasks, onClose],
+  );
 
-    void updatePreview();
-  }, [selectedItem, count]);
-
-  const handleQuickAdd = (value: number) => {
-    setCount((prev) => prev + value);
-  };
-
-  const handleCraft = async () => {
-    if (!selectedItem) {
-      toast.warning('请先选择要制造的物品');
-      return;
-    }
-    onClose();
-    await craftManager.craftWithDependencies(selectedItem, count, clearTasks);
-  };
-
-  const handleKittyCraft = async (kittyUuid: string, kittyName: string, kittyIndex: number) => {
-    if (!selectedItem) {
-      toast.warning('请先选择要制造的物品');
-      return;
-    }
-    onClose();
-    await craftManager.craftWithKitty(kittyUuid, kittyName, kittyIndex, selectedItem, count, clearTasks);
-  };
+  const handleKittyCraft = useMemo(
+    () =>
+      throttle(async (kittyUuid: string, kittyName: string, kittyIndex: number) => {
+        if (!selectedItem) {
+          toast.warning('请先选择要制造的物品');
+          return;
+        }
+        onClose();
+        await craftManager.craftWithKitty(kittyUuid, kittyName, kittyIndex, selectedItem, count, clearTasks);
+      }, 1000),
+    [selectedItem, count, clearTasks, onClose],
+  );
 
   const handlePlayerDefaultTaskChange = async (index: number, value: string) => {
     const newTasks = [...playerDefaultTasks];
@@ -482,38 +516,46 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
     })),
   }));
 
-  const handleClearPlayerTasks = async () => {
-    try {
-      const actionQueue = await dataCache.getAsync('actionQueue');
-      if (actionQueue.length === 0) {
-        toast.info('任务队列已为空');
-        return;
-      }
-      await craftManager.clearPlayerTasks();
-      toast.success('✅ 已清空当前角色任务');
-    } catch (error) {
-      logger.error('清空当前角色任务失败', error);
-      toast.error('清空任务失败');
-    }
-  };
+  const handleClearPlayerTasks = useMemo(
+    () =>
+      throttle(async () => {
+        try {
+          const actionQueue = await dataCache.getAsync('actionQueue');
+          if (actionQueue.length === 0) {
+            toast.info('任务队列已为空');
+            return;
+          }
+          await craftManager.clearPlayerTasks();
+          toast.success('✅ 已清空当前角色任务');
+        } catch (error) {
+          logger.error('清空当前角色任务失败', error);
+          toast.error('清空任务失败');
+        }
+      }, 1000),
+    [],
+  );
 
-  const handleClearKittyTasks = async (kittyUuid: string, kittyName: string) => {
-    try {
-      const data = await ws.sendAndListen('kitty:getAllTask', { kittyUuid });
-      const existingTasks = data.payload.data.taskQueue;
+  const handleClearKittyTasks = useMemo(
+    () =>
+      throttle(async (kittyUuid: string, kittyName: string) => {
+        try {
+          const data = await ws.sendAndListen('kitty:getAllTask', { kittyUuid });
+          const existingTasks = data.payload.data.taskQueue;
 
-      if (existingTasks.length === 0) {
-        toast.info(`${kittyName} 任务队列已为空`);
-        return;
-      }
+          if (existingTasks.length === 0) {
+            toast.info(`${kittyName} 任务队列已为空`);
+            return;
+          }
 
-      await craftManager.clearKittyTasks(kittyUuid, kittyName);
-      toast.success(`✅ 已清空 ${kittyName} 的任务`);
-    } catch (error) {
-      logger.error(`清空 ${kittyName} 任务失败`, error);
-      toast.error('清空任务失败');
-    }
-  };
+          await craftManager.clearKittyTasks(kittyUuid, kittyName);
+          toast.success(`✅ 已清空 ${kittyName} 的任务`);
+        } catch (error) {
+          logger.error(`清空 ${kittyName} 任务失败`, error);
+          toast.error('清空任务失败');
+        }
+      }, 1000),
+    [],
+  );
 
   return (
     <>
@@ -522,7 +564,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
       </FormGroup>
 
       <FormGroup label="制造数量">
-        <Input type="number" value={count} onChange={(v) => setCount(parseInt(v) || 1)} min={1} step={1} />
+        <Input type="number" value={count} onChange={handleCountChange} min={1} step={1} />
         <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
           {[10, 100, 1000, 10000].map((value) => (
             <Button

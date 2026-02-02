@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import type { PanelButton } from '@/types';
 import { logger } from '@/core';
+import { throttle } from '@/utils';
 
 const STYLES = `
 .mh-fab{position:fixed;bottom:calc(var(--spacing) * 25);z-index:9999;width:60px;height:60px;border-radius:50%;border:none;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.08);color:#6366f1;font-size:20px;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1)}
@@ -145,10 +146,10 @@ class FloatingPanel {
       this.loadAndRenderMenu().catch((error) => logger.error('Failed to reload menu', error));
     });
 
-    window.addEventListener('resize', () => {
+    window.addEventListener('resize', throttle(() => {
       this.checkModalMode();
       this.renderMenu();
-    });
+    }, 200));
   }
 
   private toggle(): void {
