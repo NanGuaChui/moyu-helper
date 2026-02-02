@@ -107,10 +107,7 @@ function ProgressToastComponent({
   );
 }
 
-interface ProgressToast {
-  update(msg: string): void;
-  hide(): void;
-}
+
 
 type ToastType = 'info' | 'success' | 'warning' | 'error';
 
@@ -118,7 +115,7 @@ class Toast {
   private container: HTMLDivElement | null = null;
   private toastCount = 0;
   private readonly MAX_TOASTS = 5;
-  private currentProgress: ProgressToast | null = null;
+  private currentProgressToast: HTMLElement | null = null;
 
   private getContainer(): HTMLDivElement {
     if (!this.container) {
@@ -166,55 +163,20 @@ class Toast {
   warning = (msg: string, timeout = 3000) => this.show('warning', msg, timeout);
   error = (msg: string, timeout = 3500) => this.show('error', msg, timeout);
 
-  progress(msg: string): ProgressToast {
+  progress(msg: string): void {
+    const container = this.getContainer();
+    
     // 如果已存在 progress，直接更新
-    if (this.currentProgress) {
-      this.currentProgress.update(msg);
-      return this.currentProgress;
+    if (this.currentProgressToast) {
+      render(<ProgressToastComponent message={msg} showClose={false} />, this.currentProgressToast);
+      return;
     }
 
-    const container = this.getContainer();
     const toast = document.createElement('div');
-    let isHidden = false;
-    let currentShowClose = false;
-    let timer: number | null = null;
-
-    const resetTimer = () => {
-      if (timer) clearTimeout(timer);
-      currentShowClose = false;
-      render(<ProgressToastComponent message={msg} showClose={currentShowClose} onClose={() => handleHide()} />, toast);
-      timer = window.setTimeout(() => {
-        currentShowClose = true;
-        render(<ProgressToastComponent message={msg} showClose={currentShowClose} onClose={() => handleHide()} />, toast);
-      }, 10000);
-    };
-
-    const handleHide = () => {
-      if (!isHidden) {
-        isHidden = true;
-        if (timer) clearTimeout(timer);
-        this.currentProgress = null;
-        this.remove(toast);
-      }
-    };
-
-    render(<ProgressToastComponent message={msg} showClose={currentShowClose} onClose={() => handleHide()} />, toast);
+    render(<ProgressToastComponent message={msg} showClose={false} />, toast);
     container.appendChild(toast);
     this.toastCount++;
-    resetTimer();
-
-    const progressToast: ProgressToast = {
-      update: (newMsg: string) => {
-        if (!isHidden) {
-          msg = newMsg;
-          resetTimer();
-        }
-      },
-      hide: handleHide,
-    };
-
-    this.currentProgress = progressToast;
-    return progressToast;
+    this.currentProgressToast = toast;
   }
 
   confirm(msg: string, onConfirm?: () => void, timeout?: number): void {
@@ -236,7 +198,10 @@ class Toast {
   }
 
   hideProgress(): void {
-    this.currentProgress?.hide();
+    if (this.currentProgressToast) {
+      this.remove(this.currentProgressToast);
+      this.currentProgressToast = null;
+    }
   }
 }
 

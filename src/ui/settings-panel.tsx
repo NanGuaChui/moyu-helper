@@ -188,6 +188,13 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
+            checked={settings[appConfig.QUEST_AUTO_SUBMIT.key]}
+            onChange={(v) => updateSetting(appConfig.QUEST_AUTO_SUBMIT.key, v)}
+            label="进入游戏后自动提交任务"
+          />
+        </Row>
+        <Row>
+          <Checkbox
             checked={settings[appConfig.QUEST_AUTO_EXECUTE.key]}
             onChange={(v) => updateSetting(appConfig.QUEST_AUTO_EXECUTE.key, v)}
             label="刷新后自动执行任务（不勾选则显示确认框）"

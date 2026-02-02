@@ -72,8 +72,9 @@ export const appConfig = {
       挖沙: true,
     },
   }),
-  QUEST_FIRST_RUN: createGMConfigSetting('quest_first_run', true),
-  QUEST_AUTO_EXECUTE: createGMConfigSetting('quest_auto_execute', true),
+  QUEST_FIRST_RUN: createGMConfigSetting('quest_first_run', false),
+  QUEST_AUTO_EXECUTE: createGMConfigSetting('quest_auto_execute', false),
+  QUEST_AUTO_SUBMIT: createGMConfigSetting('quest_auto_submit', false),
 
   // 功能开关
   BATTLE_GUARD_ENABLED: createGMConfigSetting('battle_guard_enabled', false),

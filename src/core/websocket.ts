@@ -129,13 +129,7 @@ class WebSocketMonitor {
     return promise;
   }
 
-  async sendAndWaitEvent(
-    method: string,
-    data: any,
-    eventName: string,
-    condition: (eventData: any) => boolean,
-    timeout = 10000,
-  ): Promise<void> {
+  async sendAndWaitEvent(method: string, data: any, eventName: string, timeout = 10000): Promise<void> {
     const promise = new Promise<void>((resolve, reject) => {
       const timer = setTimeout(() => {
         eventBus.off(eventName, handler);
@@ -144,11 +138,9 @@ class WebSocketMonitor {
 
       const handler = (eventData: any) => {
         try {
-          if (condition(eventData)) {
-            clearTimeout(timer);
-            eventBus.off(eventName, handler);
-            resolve();
-          }
+          clearTimeout(timer);
+          eventBus.off(eventName, handler);
+          resolve(eventData);
         } catch (error) {
           clearTimeout(timer);
           eventBus.off(eventName, handler);

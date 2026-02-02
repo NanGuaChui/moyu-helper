@@ -172,14 +172,8 @@ class CraftManager {
       const totalCount = actionQueue.length;
       toast.progress(`正在清空任务 (0/${totalCount})`);
       for (let i = actionQueue.length - 1; i >= 0; i--) {
-        const expectedLength = actionQueue.length - 1;
         toast.progress(`正在清空任务 (${totalCount - i}/${totalCount})`);
-        await ws.sendAndWaitEvent(
-          'removeTaskFromQueue',
-          i,
-          'actionQueueUpdated',
-          (queue: any[]) => queue.length === expectedLength,
-        );
+        await ws.sendAndWaitEvent('removeTaskFromQueue', i, 'actionQueueUpdated');
         actionQueue = await dataCache.getAsync('actionQueue');
       }
     }
@@ -241,7 +235,6 @@ class CraftManager {
             createTime: Date.now(),
           },
           'actionQueueUpdated',
-          () => true,
         );
       }
 
@@ -258,7 +251,6 @@ class CraftManager {
               createTime: Date.now(),
             },
             'actionQueueUpdated',
-            () => true,
           );
         }
       }
