@@ -4,7 +4,7 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import { ws, toast } from '@/core';
+import { ws, toast, dataCache } from '@/core';
 import { logger } from '@/core/logger';
 import { Modal, Select, Button } from '@/ui/components';
 import { analytics, sleep } from '@/utils';
@@ -12,7 +12,7 @@ import { analytics, sleep } from '@/utils';
 interface MessageStep {
   type: 'auto' | 'select';
   event: string;
-  getData?: (prevResult?: any, userSelection?: any) => any;
+  getData?: (prevResult?: any, userSelection?: any) => any | Promise<any>;
   getSelectionOptions?: (prevResult: any) => Array<{ value: string; label: string }>;
 }
 
@@ -35,6 +35,61 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
         type: 'auto',
         event: 'battleRoom:resetSelfBattleRewardInfo',
         getData: (prevResult) => ({ roomId: prevResult?.payload?.data?.uuid || '' }),
+      },
+    ],
+  },
+  {
+    label: '一键打开宝箱',
+    description: '自动使用仓库中所有的幸运猫盒、神秘罐头、梦羽袋、噩梦宝箱',
+    steps: [
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['luckyCatBox']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'luckyCatBox', multiple: count };
+          }
+          // 数量为0，返回跳过标记
+          return { skip: true };
+        },
+      },
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['mysteryCan']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'mysteryCan', multiple: count };
+          }
+          return { skip: true };
+        },
+      },
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['dreamFeatherBag']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'dreamFeatherBag', multiple: count };
+          }
+          return { skip: true };
+        },
+      },
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['nightmarePrisonChestNew']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'nightmarePrisonChestNew', multiple: count };
+          }
+          return { skip: true };
+        },
       },
     ],
   },
@@ -64,7 +119,15 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       for (let i = startIndex; i < config.steps.length; i++) {
         const step = config.steps[i];
         toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`);
-        const data = step.getData?.(result, userSelection) || null;
+        const data = step.getData ? await step.getData(result, userSelection) : null;
+
+        // 检查是否跳过此步骤
+        if (data?.skip) {
+          logger.info(`[快捷功能] 跳过步骤: ${step.event}`);
+          toast.info(`[快捷功能] 跳过步骤 ${i + 1}/${config.steps.length}`);
+          continue;
+        }
+
         result = await ws.sendAndListen(step.event, data, 10000);
         logger.info(`[快捷功能] ${step.event} 结果:`, result);
         logger.info(`[快捷功能] 步骤 ${i + 1}/${config.steps.length} 完成: ${step.event}`);
