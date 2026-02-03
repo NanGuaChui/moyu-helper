@@ -409,6 +409,7 @@ function calculateTalentAllocation(
     }
   };
 
+  // 效率优先策略
   const allocateEfficiencyFirst = () => {
     // 阶段1: 基础效率至少2级
     while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
@@ -453,6 +454,7 @@ function calculateTalentAllocation(
     }
   };
 
+  // 经验优先策略
   const allocateExperienceFirst = () => {
     if (totalPoints < 24) {
       allocateEfficiencyFirst();
@@ -490,6 +492,61 @@ function calculateTalentAllocation(
     allocateRemainingPointsByEfficiency(['_returnResource', '_extraExp']);
   };
 
+  // 产出+材料优先：额外产出和返还材料按1:1平均加点
+  const allocateBalanced = () => {
+    // 阶段1: 解锁专精效率节点
+    if (allocation['l_efficiency_basics'] < 2) {
+      while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
+        if (!tryUpgradeNode('l_efficiency_basics')) {
+          break;
+        }
+      }
+    }
+
+    // 阶段2: 点专精效率到7级
+    while (allocation[`l_${specialty}_focus`] < 7 && remainingPoints > 0) {
+      if (!tryUpgradeNode(`l_${specialty}_focus`)) {
+        break;
+      }
+    }
+
+    // 阶段3: 按照1额外产出1返还材料的策略平均加点
+    const extraRewardNodeId = `l_${specialty}_extraReward`;
+    const returnResourceNodeId = `l_${specialty}_returnResource`;
+
+    while (remainingPoints > 0) {
+      const canUpgradeReward =
+        allocation[extraRewardNodeId] < 10 && canUpgrade(extraRewardNodeId, allocation[extraRewardNodeId]);
+      const canUpgradeReturn =
+        allocation[returnResourceNodeId] < 10 && canUpgrade(returnResourceNodeId, allocation[returnResourceNodeId]);
+
+      // 如果两个节点都达到上限或都无法升级，退出
+      if (!canUpgradeReward && !canUpgradeReturn) {
+        break;
+      }
+
+      // 优先升级等级较低的节点，保持1:1平衡
+      const nodeToUpgrade =
+        !canUpgradeReward ? returnResourceNodeId : !canUpgradeReturn ? extraRewardNodeId : allocation[extraRewardNodeId] <= allocation[returnResourceNodeId] ? extraRewardNodeId : returnResourceNodeId;
+
+      const cost = getUpgradeCost(nodeToUpgrade, allocation[nodeToUpgrade]);
+      if (cost <= remainingPoints) {
+        allocation[nodeToUpgrade]++;
+        remainingPoints -= cost;
+      } else {
+        break;
+      }
+    }
+
+    // 阶段3: 剩余点数按效率优先级分配
+    allocateRemainingPointsByEfficiency(['_extraExp']);
+
+    // 阶段5: 如果还有剩余点数，投入经验获取节点
+    if (remainingPoints > 0) {
+      tryAllocateExpNode();
+    }
+  };
+
   // 主加点逻辑
   if (luckyFirst) {
     allocateLucky();
@@ -507,6 +564,9 @@ function calculateTalentAllocation(
       break;
     case '经验优先':
       allocateExperienceFirst();
+      break;
+    case '产出+材料优先':
+      allocateBalanced();
       break;
     default:
       allocateEfficiencyFirst();
@@ -895,6 +955,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
     { value: '效率优先', label: '效率优先' },
     { value: '产出优先', label: '产出优先' },
     { value: '材料优先', label: '材料优先' },
+    { value: '产出+材料优先', label: '产出+材料优先' },
     { value: '经验优先', label: '经验优先' },
   ];
 
