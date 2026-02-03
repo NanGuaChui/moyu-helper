@@ -7,7 +7,8 @@
         "value": "reading",
         "label": "读书",
         "actionId": "reading",
-        "rewards": []
+        "rewards": [],
+        "banToKitty": true
       },
       {
         "value": "swim",
@@ -19,7 +20,8 @@
             "itemId": "gold",
             "count": 25
           }
-        ]
+        ],
+        "banToKitty": true
       },
       {
         "value": "charcoalMaking",
@@ -780,7 +782,8 @@
             "itemId": "knowledgeEssence",
             "count": 100
           }
-        ]
+        ],
+        "banToKitty": true
       },
       {
         "value": "compileBookOfBattleSkillTreePoint",
@@ -833,7 +836,8 @@
             "itemId": "experienceOfIntelligence",
             "count": 25
           }
-        ]
+        ],
+        "banToKitty": true
       }
     ]
   },

@@ -224,6 +224,7 @@ function transformAction(actionId, action) {
     rewards,
     dependencies,
     category: getActionCategory(actionId, action),
+    banToKitty: action.banToKitty || false,
   };
 }
 
@@ -235,6 +236,7 @@ function toTreeItem(action) {
     actionId: action.actionId,
     rewards: action.rewards,
     ...(action.dependencies.length && { dependencies: action.dependencies }),
+    ...(action.banToKitty && { banToKitty: action.banToKitty }),
   };
 }
 

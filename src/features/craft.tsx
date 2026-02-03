@@ -21,7 +21,7 @@ interface CraftStep {
 // ==================== 制造管理器 ====================
 
 class CraftManager {
-  private categories = DEFAULT_CRAFT_ITEMS;
+  private categories: CraftItemCategory[] = DEFAULT_CRAFT_ITEMS;
   private running = false;
 
   getCraftCategories(): CraftItemCategory[] {
@@ -51,11 +51,33 @@ class CraftManager {
   }
 
   private findByRewardId(rewardId: string): CraftItem | undefined {
+    const candidates: CraftItem[] = [];
     for (const category of this.categories) {
-      const item = category.items.find((item) => item.rewards.some((r) => r.itemId === rewardId));
-      if (item) return item;
+      for (const item of category.items) {
+        if (item.rewards.some((r) => r.itemId === rewardId)) {
+          candidates.push(item);
+        }
+      }
     }
-    return undefined;
+    
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+    
+    const basicResources = new Set(['berry', 'fish', 'wood', 'stone', 'coal', 'treasureMap']);
+    
+    const countNonBasicDeps = (item: CraftItem): number => {
+      if (!item.dependencies) return 0;
+      return item.dependencies.filter(dep => !basicResources.has(dep.itemId)).length;
+    };
+    
+    return candidates.reduce((best, current) => 
+      countNonBasicDeps(current) < countNonBasicDeps(best) ? current : best
+    );
+  }
+
+  isBannedForKitty(actionId: string): boolean {
+    const item = this.findByActionId(actionId);
+    return item?.banToKitty === true;
   }
 
   buildPlan(actionId: string, targetCount: number): CraftStep[] {
@@ -379,11 +401,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
 
-  const isSelfImprovementItem = useMemo(() => {
-    if (!selectedItem) return false;
-    const selfImprovementCategory = craftManager.getCraftCategories().find(cat => cat.value === '自我提升');
-    return selfImprovementCategory?.items.some(item => item.actionId === selectedItem) ?? false;
-  }, [selectedItem]);
+  const isKittyBanned = useMemo(() => craftManager.isBannedForKitty(selectedItem), [selectedItem]);
 
   const itemOptions = craftManager.getCraftCategories().map((category) => ({
     label: category.label,
@@ -587,7 +605,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
 
       <Button onClick={handleCraft}>开始制造</Button>
 
-      {kitties.length > 0 && !isSelfImprovementItem && (
+      {kitties.length > 0 && !isKittyBanned && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
           {kitties.map((kitty, index) => (
             <Button
