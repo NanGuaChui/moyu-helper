@@ -965,7 +965,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
 
     // 异步执行加点操作,通过持续显示的 toast 显示进度
     try {
-      toast.progress('正在获取专精点数信息...');
+      toast.progress('📊 正在获取专精点数信息...');
 
       await sleep(500);
 
@@ -976,10 +976,10 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
         'life',
         (remaining, total, nodeId) => {
           const nodeName = getNodeDisplayName(nodeId);
-          toast.progress(`生活专精加点中！当前: ${nodeName}（剩余技能点: ${remaining}/${total}）`);
+          toast.progress(`⬆️ 生活专精加点中！当前: ${nodeName}（剩余技能点: ${remaining}/${total}）`);
         },
         () => {
-          toast.progress('正在计算加点方案...');
+          toast.progress('🧮 正在计算加点方案...');
         },
       );
 
@@ -999,7 +999,8 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       logger.error('加点失败', error);
       const msg = error instanceof Error ? error.message : '未知错误';
-      toast.error(`加点失败: ${msg}`);
+      toast.hideProgress();
+      toast.error(`❌ 加点失败: ${msg}`);
     }
   };
 
