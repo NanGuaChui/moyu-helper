@@ -347,7 +347,13 @@ class ResourceMonitor {
 
   async setMonitoredResources(resources: Record<string, ResourceConfig>): Promise<void> {
     this.resources = resources;
-    await appConfig.MONITORED_RESOURCES.set(JSON.stringify(resources));
+    const defaults = this.flattenCategories(DEFAULT_RESOURCES);
+    const isEqual = JSON.stringify(resources) === JSON.stringify(defaults);
+    if (isEqual) {
+      await GM.deleteValue(appConfig.MONITORED_RESOURCES.key);
+    } else {
+      await appConfig.MONITORED_RESOURCES.set(JSON.stringify(resources));
+    }
     logger.info('资源配置已更新');
   }
 

@@ -29,9 +29,7 @@ function createGMConfigSetting<T>(key: string, defaultValue: T): Setting<T> {
 
 export const appConfig = {
   // 任务队列配置
-  QUEST_BATCH_SIZE: createGMConfigSetting('quest_batch_size', 20),
   TASK_INTERVAL: createGMConfigSetting('task_interval', 300),
-  BATCH_DELAY: createGMConfigSetting('batch_delay', 5000),
 
   // 资源监控配置
   RESOURCE_MONITOR_ENABLED: createGMConfigSetting('resource_monitor_enabled', false),

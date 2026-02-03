@@ -43,7 +43,7 @@ class QuestManager {
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
 
     if (this.config.autoSubmit) {
-      await this.fetchAndCompleteQuests();
+      setTimeout(async () => await this.fetchAndCompleteQuests(false), 3000);
     }
   }
 
@@ -63,34 +63,35 @@ class QuestManager {
     return false;
   }
 
-  private async fetchAndCompleteQuests(): Promise<Quest[]> {
+  private async fetchAndCompleteQuests(returnUpdatedList = true): Promise<Quest[]> {
     const res = await ws.sendAndListen('quest:list');
     let quests = res.payload.data || [];
 
-    const completedCount = quests.filter((q) => q.status !== 'PENDING').length;
+    const completedCount = quests.filter((q) => q.status === 'DONE').length;
     if (completedCount > 0) {
       toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`);
+      await sleep(1000);
       await this.completeAll();
-      await sleep(2000);
-      const res = await ws.sendAndListen('quest:list');
-      quests = res.payload.data || [];
+      toast.hideProgress();
+      await sleep(1000);
+      if (returnUpdatedList) {
+        const res = await ws.sendAndListen('quest:list');
+        quests = res.payload.data || [];
+      }
     }
 
     return quests;
   }
 
   async completeAll(): Promise<void> {
-    const res = await ws.sendAndListen('quest:completeAll');
-    const count = res.payload?.data?.completedCount || 0;
-    if (count > 0) {
-      toast.success(`✅ 已提交 ${count} 个任务`);
-      logger.success(`已提交 ${count} 个任务`);
-    }
+    await ws.sendAndListen('quest:completeAll');
+    toast.success(`✅ 提交任务完成`);
+    logger.success(`已提交任务完成`);
   }
 
   private async rerollQuest(
     quest: Quest,
-    onProgress?: (attempts: number) => void,
+    onProgress?: (attempts: number, quest: Quest) => void,
   ): Promise<{ quest: Quest; attempts: number }> {
     let current = quest;
     let attempts = 0;
@@ -98,7 +99,7 @@ class QuestManager {
 
     while (!this.isValidQuest(current) && attempts < maxAttempts) {
       attempts++;
-      onProgress?.(attempts);
+      onProgress?.(attempts, current);
 
       // 检查金币限制
       const goldAmount = (current.rerollCount + 1) * 250;
@@ -149,18 +150,23 @@ class QuestManager {
 
     for (let i = 0; i < quests.length; i++) {
       onProgress?.(i + 1, quests.length);
-      await ws.sendAndWaitEvent(
-        'task:immediatelyStart',
-        {
-          actionId: quests[i].target.actionId,
-          repeatCount: quests[i].target.count,
-          currentRepeat: 0,
-          createTime: Date.now(),
-        },
-        'actionQueueUpdated',
-      );
-      // 不加这句会有重复的任务 不懂
-      await sleep(1000);
+      try {
+        await ws.sendAndWaitEvent(
+          'task:immediatelyStart',
+          {
+            actionId: quests[i].target.actionId,
+            repeatCount: quests[i].target.count,
+            currentRepeat: 0,
+            createTime: Date.now(),
+          },
+          'actionQueueUpdated',
+        );
+        // 不加这句会有重复的任务 不懂
+        await sleep(1000);
+      } catch (error) {
+        logger.error(`添加任务失败: ${quests[i].target.actionId}`, error);
+        // 继续执行下一个任务
+      }
     }
 
     toast.success(`✅ 已添加 ${quests.length} 个任务到执行队列`);
@@ -197,8 +203,6 @@ class QuestManager {
   }
 
   async refreshCards(): Promise<void> {
-    await this.init();
-
     // 首次运行提示
     const isFirstRun = await appConfig.QUEST_FIRST_RUN.get();
     if (isFirstRun) {
@@ -256,13 +260,13 @@ class QuestManager {
         const questIndex = quests.findIndex((q) => q.uuid === toReroll[i].uuid);
         toast.progress(`🎲 [${i + 1}/${toReroll.length}] 正在刷新: ${toReroll[i].title}`);
 
-        const { attempts, quest } = await this.rerollQuest(toReroll[i], (attempts) => {
-          toast.progress(`🎲 [${i + 1}/${toReroll.length}] 刷新中: ${toReroll[i].title} (第${attempts}次)`);
+        const { attempts, quest } = await this.rerollQuest(toReroll[i], (attempts, quest) => {
+          toast.progress(`🎲 [${i + 1}/${toReroll.length}] [第${attempts}次] ${quest.title}`);
         });
 
         quests[questIndex] = quest;
-        const status = this.isValidQuest(quest) ? '✅ 成功' : '⚠️ 已达限制';
-        toast.progress(`${status} [${i + 1}/${toReroll.length}] ${quest.title} (共${attempts}次)`);
+        const status = this.isValidQuest(quest) ? '✅' : '⚠️';
+        toast.progress(`${status} [${i + 1}/${toReroll.length}] [共${attempts}次] ${quest.title}`);
         await sleep(1000);
       }
 

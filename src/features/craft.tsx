@@ -379,6 +379,12 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
 
+  const isSelfImprovementItem = useMemo(() => {
+    if (!selectedItem) return false;
+    const selfImprovementCategory = craftManager.getCraftCategories().find(cat => cat.value === '自我提升');
+    return selfImprovementCategory?.items.some(item => item.actionId === selectedItem) ?? false;
+  }, [selectedItem]);
+
   const itemOptions = craftManager.getCraftCategories().map((category) => ({
     label: category.label,
     value: category.value,
@@ -581,7 +587,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
 
       <Button onClick={handleCraft}>开始制造</Button>
 
-      {kitties.length > 0 && (
+      {kitties.length > 0 && !isSelfImprovementItem && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
           {kitties.map((kitty, index) => (
             <Button
