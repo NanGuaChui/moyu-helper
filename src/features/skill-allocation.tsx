@@ -797,6 +797,7 @@ class SkillAllocationManager {
         logger.debug('技能树摘要响应:', summaryResponse);
       } catch (err: any) {
         logger.error('获取技能树摘要超时或失败', err);
+        toast.hideProgress('skill-allocation');
         throw new Error('获取技能树摘要失败');
       }
 
