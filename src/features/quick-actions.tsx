@@ -58,12 +58,12 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     if (!config) return;
 
     setLoading(config.label);
-    toast.progress(`正在执行：${config.label}...`);
+    toast.progress(`正在执行：${config.label}...`, 'quick-actions');
     try {
       let result = prevResult;
       for (let i = startIndex; i < config.steps.length; i++) {
         const step = config.steps[i];
-        toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`);
+        toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`, 'quick-actions');
         const data = step.getData?.(result, userSelection) || null;
         result = await ws.sendAndListen(step.event, data, 10000);
         logger.info(`[快捷功能] ${step.event} 结果:`, result);
@@ -76,7 +76,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
           setPrevResult(result);
           setWaitingForSelection(true);
           setLoading(null);
-          toast.hideProgress();
+          toast.hideProgress('quick-actions');
           return;
         } else {
           await sleep(1000);
@@ -93,7 +93,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       analytics.track('快捷功能', config.label, '失败');
     } finally {
       setLoading(null);
-      toast.hideProgress();
+      toast.hideProgress('quick-actions');
     }
   };
 

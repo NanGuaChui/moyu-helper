@@ -107,15 +107,15 @@ function ProgressToastComponent({
   );
 }
 
-
-
 type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+const DEFAULT_PROGRESS_ID = '__default__';
 
 class Toast {
   private container: HTMLDivElement | null = null;
   private toastCount = 0;
   private readonly MAX_TOASTS = 5;
-  private currentProgressToast: HTMLElement | null = null;
+  private progressToasts: Map<string, HTMLElement> = new Map();
 
   private getContainer(): HTMLDivElement {
     if (!this.container) {
@@ -163,12 +163,13 @@ class Toast {
   warning = (msg: string, timeout = 3000) => this.show('warning', msg, timeout);
   error = (msg: string, timeout = 3500) => this.show('error', msg, timeout);
 
-  progress(msg: string): void {
+  progress(msg: string, id: string = DEFAULT_PROGRESS_ID): void {
     const container = this.getContainer();
-    
-    // 如果已存在 progress，直接更新
-    if (this.currentProgressToast) {
-      render(<ProgressToastComponent message={msg} showClose={false} />, this.currentProgressToast);
+    const existingToast = this.progressToasts.get(id);
+
+    // 如果已存在该 ID 的 progress，直接更新
+    if (existingToast) {
+      render(<ProgressToastComponent message={msg} showClose={false} />, existingToast);
       return;
     }
 
@@ -176,7 +177,7 @@ class Toast {
     render(<ProgressToastComponent message={msg} showClose={false} />, toast);
     container.appendChild(toast);
     this.toastCount++;
-    this.currentProgressToast = toast;
+    this.progressToasts.set(id, toast);
   }
 
   confirm(msg: string, onConfirm?: () => void, timeout?: number): void {
@@ -197,10 +198,11 @@ class Toast {
     this.toastCount++;
   }
 
-  hideProgress(): void {
-    if (this.currentProgressToast) {
-      this.remove(this.currentProgressToast);
-      this.currentProgressToast = null;
+  hideProgress(id: string = DEFAULT_PROGRESS_ID): void {
+    const toast = this.progressToasts.get(id);
+    if (toast) {
+      this.remove(toast);
+      this.progressToasts.delete(id);
     }
   }
 }

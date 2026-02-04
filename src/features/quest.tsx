@@ -69,10 +69,10 @@ class QuestManager {
 
     const completedCount = quests.filter((q) => q.status === 'DONE').length;
     if (completedCount > 0) {
-      toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`);
+      toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`, 'quest');
       await sleep(1000);
       await this.completeAll();
-      toast.hideProgress();
+      toast.hideProgress('quest');
       await sleep(1000);
       if (returnUpdatedList) {
         const res = await ws.sendAndListen('quest:list');
@@ -180,24 +180,24 @@ class QuestManager {
 
   private async handleQuestExecution(uniqueQuests: Quest[]): Promise<void> {
     if (uniqueQuests.length === 0) {
-      toast.hideProgress();
+      toast.hideProgress('quest');
       toast.info('❌ 没有符合条件的任务');
       return;
     }
 
     if (this.config.autoExecute) {
-      toast.progress(`⚡ 开始执行 ${uniqueQuests.length} 个任务...`);
+      toast.progress(`⚡ 开始执行 ${uniqueQuests.length} 个任务...`, 'quest');
       await this.startQuests(uniqueQuests, (index, total) => {
-        toast.progress(`⚡ 正在添加任务 [${index}/${total}]`);
+        toast.progress(`⚡ 正在添加任务 [${index}/${total}]`, 'quest');
       });
-      toast.hideProgress();
+      toast.hideProgress('quest');
     } else {
-      toast.hideProgress();
+      toast.hideProgress('quest');
       toast.confirm(`任务刷新完成，共 ${uniqueQuests.length} 个任务待执行，是否立即执行？`, async () => {
         await this.startQuests(uniqueQuests, (index, total) => {
-          toast.progress(`⚡ 正在添加任务 [${index}/${total}]`);
+          toast.progress(`⚡ 正在添加任务 [${index}/${total}]`, 'quest');
         });
-        toast.hideProgress();
+        toast.hideProgress('quest');
       });
     }
   }
@@ -226,24 +226,24 @@ class QuestManager {
   }
 
   private async executeRefresh(): Promise<void> {
-    toast.progress('🔄 正在获取任务列表...');
+    toast.progress('🔄 正在获取任务列表...', 'quest');
 
     try {
       const quests = await this.fetchAndCompleteQuests();
-      toast.progress(`✅ 已获取 ${quests.length} 个任务`);
+      toast.progress(`✅ 已获取 ${quests.length} 个任务`, 'quest');
       await sleep(500);
 
       // 筛选需要刷新的任务
       const toReroll = quests.filter((q) => q.status === 'PENDING' && !this.isValidQuest(q));
       const validCount = quests.filter((q) => q.status === 'PENDING' && this.isValidQuest(q)).length;
 
-      toast.progress(`📊 分析完成: ${validCount} 个符合条件, ${toReroll.length} 个需要刷新`);
+      toast.progress(`📊 分析完成: ${validCount} 个符合条件, ${toReroll.length} 个需要刷新`, 'quest');
       await sleep(500);
 
       // 如果不需要刷新，直接执行
       if (toReroll.length === 0) {
         const uniqueQuests = this.getValidUniqueQuests(quests);
-        toast.progress(`🎯 准备执行 ${uniqueQuests.length} 个任务...`);
+        toast.progress(`🎯 准备执行 ${uniqueQuests.length} 个任务...`, 'quest');
         await sleep(500);
         await this.handleQuestExecution(uniqueQuests);
         if (uniqueQuests.length > 0) {
@@ -253,25 +253,25 @@ class QuestManager {
       }
 
       // 刷新不符合条件的任务
-      toast.progress(`🔄 开始刷新 ${toReroll.length} 个任务...`);
+      toast.progress(`🔄 开始刷新 ${toReroll.length} 个任务...`, 'quest');
       await sleep(500);
 
       for (let i = 0; i < toReroll.length; i++) {
         const questIndex = quests.findIndex((q) => q.uuid === toReroll[i].uuid);
-        toast.progress(`🎲 [${i + 1}/${toReroll.length}] 正在刷新: ${toReroll[i].title}`);
+        toast.progress(`🎲 [${i + 1}/${toReroll.length}] 正在刷新: ${toReroll[i].title}`, 'quest');
 
         const { attempts, quest } = await this.rerollQuest(toReroll[i], (attempts, quest) => {
-          toast.progress(`🎲 [${i + 1}/${toReroll.length}] [第${attempts}次] ${quest.title}`);
+          toast.progress(`🎲 [${i + 1}/${toReroll.length}] [第${attempts}次] ${quest.title}`, 'quest');
         });
 
         quests[questIndex] = quest;
         const status = this.isValidQuest(quest) ? '✅' : '⚠️';
-        toast.progress(`${status} [${i + 1}/${toReroll.length}] [共${attempts}次] ${quest.title}`);
+        toast.progress(`${status} [${i + 1}/${toReroll.length}] [共${attempts}次] ${quest.title}`, 'quest');
         await sleep(1000);
       }
 
       const uniqueQuests = this.getValidUniqueQuests(quests);
-      toast.progress(`🎯 刷新完成，准备执行 ${uniqueQuests.length} 个任务...`);
+      toast.progress(`🎯 刷新完成，准备执行 ${uniqueQuests.length} 个任务...`, 'quest');
       await sleep(500);
 
       await this.handleQuestExecution(uniqueQuests);
@@ -280,7 +280,7 @@ class QuestManager {
       }
     } catch (error) {
       logger.error('任务处理失败', error);
-      toast.hideProgress();
+      toast.hideProgress('quest');
       toast.error('任务处理失败，请稍后重试');
     }
   }

@@ -94,7 +94,7 @@ class TaskQueue {
     this.queue = [];
     this.processing = false;
     this.taskCount = 0;
-    toast.hideProgress();
+    toast.hideProgress('task-queue');
     logger.info('任务队列已销毁');
   }
 
