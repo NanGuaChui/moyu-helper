@@ -9,7 +9,7 @@ import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, debounce, sleep } from '@/utils';
+import { analytics, sleep } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -95,7 +95,6 @@ class ResourceMonitor {
   private enabled = false;
   private autoBuyEnabled = false;
   private nameToIdCache: Map<string, string> | null = null;
-  private debouncedCheck = debounce((persistent: boolean) => this.performCheck(true, persistent), 500);
 
   constructor() {
     this.resources = this.flattenCategories(DEFAULT_RESOURCES);
@@ -170,7 +169,7 @@ class ResourceMonitor {
     }
 
     try {
-      this.debouncedCheck(persistent);
+      await this.performCheck(true, persistent);
     } catch (error) {
       logger.error('获取库存数据失败', error);
       toast.error('获取库存数据失败，请稍后重试');
@@ -218,7 +217,7 @@ class ResourceMonitor {
 
   private async findProblematicItems(gameResources: any): Promise<ResourceItem[]> {
     const items: ResourceItem[] = [];
-    const inventory = await dataCache.getAsync('inventory');
+    const inventory = await dataCache.getAsync('inventory', true);
 
     for (const [id, config] of Object.entries(this.resources)) {
       if (config.threshold === 0) continue;
