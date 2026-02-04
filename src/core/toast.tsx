@@ -9,12 +9,12 @@ const TOAST_STYLES = `
 .mh-toast-close{width:20px;height:20px;border:none;background:0 0;cursor:pointer;font-size:18px;color:#999;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s,background .15s,transform .15s}
 .mh-toast-close:hover{color:#333;background:rgba(0,0,0,.05);border-radius:50%;transform:scale(1.1)}
 .mh-toast-close:active{transform:scale(.95)}
-.mh-toast-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:currentColor;opacity:.8;width:100%;transition:width linear}
-.mh-toast.info{border:1px solid #3498db}.mh-toast.info .mh-toast-progress{color:#3498db}
-.mh-toast.success{border:1px solid #4caf50}.mh-toast.success .mh-toast-progress{color:#4caf50}
-.mh-toast.warning{border:1px solid #ff9800}.mh-toast.warning .mh-toast-progress{color:#ff9800}
-.mh-toast.error{border:1px solid #f44336}.mh-toast.error .mh-toast-progress{color:#f44336}
-.mh-toast-confirm{border:1px solid #3498db}
+.mh-toast-progress{position:absolute;bottom:0;left:4px;right:0;height:3px;background:currentColor;opacity:.3;width:100%;transition:width linear;border-radius:0 0 8px 0}
+.mh-toast.info{border-left:4px solid #3498db}.mh-toast.info .mh-toast-progress{color:#3498db}
+.mh-toast.success{border-left:4px solid #4caf50}.mh-toast.success .mh-toast-progress{color:#4caf50}
+.mh-toast.warning{border-left:4px solid #ff9800}.mh-toast.warning .mh-toast-progress{color:#ff9800}
+.mh-toast.error{border-left:4px solid #f44336}.mh-toast.error .mh-toast-progress{color:#f44336}
+.mh-toast-confirm{border-left:4px solid #3498db}
 .mh-toast-buttons{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
 .mh-toast-btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:14px;transition:all .2s;font-weight:500}
 .mh-toast-btn:hover{opacity:.85;transform:translateY(-1px)}
