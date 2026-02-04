@@ -118,7 +118,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       let result = prevResult;
       for (let i = startIndex; i < config.steps.length; i++) {
         const step = config.steps[i];
-        toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`);
+        toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`, 'quick-actions');
         const data = step.getData ? await step.getData(result, userSelection) : null;
 
         // 检查是否跳过此步骤

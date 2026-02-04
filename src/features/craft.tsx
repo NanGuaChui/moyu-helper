@@ -229,7 +229,7 @@ class CraftManager {
       toast.info('正在计算制造计划...');
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
-        toast.hideProgress();
+        toast.hideProgress('craft');
         return;
       }
 

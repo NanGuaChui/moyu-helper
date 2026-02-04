@@ -1008,7 +1008,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
     } catch (error) {
       logger.error('加点失败', error);
       const msg = error instanceof Error ? error.message : '未知错误';
-      toast.hideProgress();
+      toast.hideProgress('skill-allocation');
       toast.error(`❌ 加点失败: ${msg}`);
     }
   };
