@@ -39,6 +39,27 @@ class EventBus {
     this.on(event, wrapper);
   }
 
+  /**
+   * 等待事件触发（Promise 方式）
+   * @param event 事件名称
+   * @param timeout 超时时间（毫秒）
+   * @returns Promise
+   */
+  waitFor<T = any>(event: string, timeout = 10000): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        unsubscribe();
+        reject(new Error(`等待事件 [${event}] 超时`));
+      }, timeout);
+
+      const unsubscribe = this.on(event, (data: T) => {
+        clearTimeout(timer);
+        unsubscribe();
+        resolve(data);
+      });
+    });
+  }
+
   clear(): void {
     this.events.clear();
   }

@@ -688,11 +688,11 @@ class SkillAllocationManager {
     const timeoutMs = 10000;
 
     // 先准备监听器 promise
-    const listenPromise = ws.awaitOnce('skillTree:reset:success');
+    const listenPromise = ws.waitFor('skillTree:reset:success');
 
     // 发送重置请求（不等待响应）
     try {
-      await ws.send('skillTree:reset', { treeId });
+      await ws.emit('skillTree:reset', { treeId });
     } catch (err) {
       logger.warn('发送重置消息失败（可能尚未连接），继续等待事件', err);
     }
@@ -734,7 +734,7 @@ class SkillAllocationManager {
 
   async allocate(nodeId: string, treeId: string = 'life'): Promise<SkillAllocationSummary> {
     const timeoutMs = 8000;
-    const responsePromise = ws.sendAndListenCustom('skillTree:allocate', 'skillTree:summary:success', {
+    const responsePromise = ws.requestRaw('skillTree:allocate', 'skillTree:summary:success', {
       treeId,
       nodeId,
     });
@@ -787,7 +787,7 @@ class SkillAllocationManager {
       // 先获取技能树摘要,等待响应后再进行后续操作
       logger.info('获取技能树摘要...');
       const timeoutMs = 10000;
-      const summaryPromise = ws.sendAndListenCustom('skillTree:summary', 'skillTree:summary:success', { treeId });
+      const summaryPromise = ws.requestRaw('skillTree:summary', 'skillTree:summary:success', { treeId });
       let summaryResponse: any;
       try {
         summaryResponse = await Promise.race([

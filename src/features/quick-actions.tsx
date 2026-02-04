@@ -128,7 +128,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
           continue;
         }
 
-        result = await ws.sendAndListen(step.event, data, 10000);
+        result = await ws.request(step.event, data, 10000);
         logger.info(`[快捷功能] ${step.event} 结果:`, result);
         logger.info(`[快捷功能] 步骤 ${i + 1}/${config.steps.length} 完成: ${step.event}`);
 

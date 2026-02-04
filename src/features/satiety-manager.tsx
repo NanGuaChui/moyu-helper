@@ -51,7 +51,7 @@ class SatietyManager {
 
         while (remaining > 0) {
           const useAmount = Math.min(remaining, 100000);
-          await ws.sendAndListen('effectAction:useItem', { itemId: this.foodType, multiple: useAmount });
+          await ws.request('effectAction:useItem', { itemId: this.foodType, multiple: useAmount });
           totalUsed += useAmount;
           remaining -= useAmount;
         }

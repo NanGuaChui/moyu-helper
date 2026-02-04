@@ -6,7 +6,7 @@
 import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
-import { logger, toast, ws, dataCache } from '@/core';
+import { logger, toast, ws, dataCache, eventBus } from '@/core';
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
 import { analytics, debounce, throttle } from '@/utils';
@@ -195,14 +195,16 @@ class CraftManager {
       toast.progress(`正在清空任务 (0/${totalCount})`, 'craft');
       for (let i = actionQueue.length - 1; i >= 0; i--) {
         toast.progress(`正在清空任务 (${totalCount - i}/${totalCount})`, 'craft');
-        await ws.sendAndWaitEvent('removeTaskFromQueue', i, 'actionQueueUpdated');
+        const waitPromise = eventBus.waitFor('actionQueueUpdated');
+        await ws.emit('removeTaskFromQueue', i);
+        await waitPromise;
         actionQueue = await dataCache.getAsync('actionQueue');
       }
     }
   }
 
   async clearKittyTasks(kittyUuid: string, kittyName: string): Promise<void> {
-    const data = await ws.sendAndListen('kitty:getAllTask', { kittyUuid });
+    const data = await ws.request('kitty:getAllTask', { kittyUuid });
     const existingTasks = data.payload.data.taskQueue;
 
     if (existingTasks.length > 0) {
@@ -210,7 +212,7 @@ class CraftManager {
       toast.progress(`正在清空 ${kittyName} 的任务 (0/${totalCount})`, 'craft');
       for (let i = existingTasks.length - 1; i >= 0; i--) {
         toast.progress(`正在清空 ${kittyName} 的任务 (${totalCount - i}/${totalCount})`, 'craft');
-        await ws.sendAndListen('kitty:removeTask', { kittyUuid, index: i });
+        await ws.request('kitty:removeTask', { kittyUuid, index: i });
       }
     }
   }
@@ -248,32 +250,28 @@ class CraftManager {
         const step = optimized[i];
         toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`, 'craft');
 
-        await ws.sendAndWaitEvent(
-          'addTaskToQueue',
-          {
-            actionId: step.actionId,
-            repeatCount: step.count,
-            currentRepeat: 0,
-            createTime: Date.now(),
-          },
-          'actionQueueUpdated',
-        );
+        const waitPromise = eventBus.waitFor('actionQueueUpdated');
+        await ws.emit('addTaskToQueue', {
+          actionId: step.actionId,
+          repeatCount: step.count,
+          currentRepeat: 0,
+          createTime: Date.now(),
+        });
+        await waitPromise;
       }
 
       toast.progress('正在添加默认任务...', 'craft');
       const defaultTasks = await appConfig.PLAYER_DEFAULT_TASKS.get();
       for (const taskId of defaultTasks) {
         if (taskId) {
-          await ws.sendAndWaitEvent(
-            'addTaskToQueue',
-            {
-              actionId: taskId,
-              repeatCount: 999999,
-              currentRepeat: 0,
-              createTime: Date.now(),
-            },
-            'actionQueueUpdated',
-          );
+          const waitPromise = eventBus.waitFor('actionQueueUpdated');
+          await ws.emit('addTaskToQueue', {
+            actionId: taskId,
+            repeatCount: 999999,
+            currentRepeat: 0,
+            createTime: Date.now(),
+          });
+          await waitPromise;
         }
       }
 
@@ -329,7 +327,7 @@ class CraftManager {
         const step = tasks[i];
         toast.progress(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`, 'craft');
 
-        await ws.sendAndListen('kitty:addTask', {
+        await ws.request('kitty:addTask', {
           kittyUuid,
           task: {
             actionId: step.actionId,
@@ -343,7 +341,7 @@ class CraftManager {
       const defaultTask = await this.getKittyDefaultTask(kittyIndex);
       let addedDefaultTask = false;
       if (defaultTask && tasks.length < 3) {
-        await ws.sendAndListen('kitty:addTask', {
+        await ws.request('kitty:addTask', {
           kittyUuid,
           task: {
             actionId: defaultTask,
@@ -555,7 +553,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
     () =>
       throttle(async (kittyUuid: string, kittyName: string) => {
         try {
-          const data = await ws.sendAndListen('kitty:getAllTask', { kittyUuid });
+          const data = await ws.request('kitty:getAllTask', { kittyUuid });
           const existingTasks = data.payload.data.taskQueue;
 
           if (existingTasks.length === 0) {

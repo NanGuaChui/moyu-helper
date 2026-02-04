@@ -264,7 +264,7 @@ class ResourceMonitor {
       const needed = targetAmount - item.count;
       if (needed > 0) {
         try {
-          await ws.send('requestShopBuyResource', { id: resourceId, count: needed });
+          await ws.emit('requestShopBuyResource', { id: resourceId, count: needed });
           logger.info(`自动购买基础资源: ${item.name} x${needed} (目标: ${targetAmount})`);
           boughtItems.push(`${item.name}x${needed}`);
           hasBought = true;

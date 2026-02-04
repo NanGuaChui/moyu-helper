@@ -68,7 +68,7 @@ class AlchemyManager {
     try {
       const alchemyData = { input: inputs, times };
       toast.info(`正在提交炼金任务 ${getCachedResourceName(recipeId)} x${times}...`);
-      await ws.sendAndListen('alchemy:auto:create', alchemyData, 30000);
+      await ws.request('alchemy:auto:create', alchemyData, 30000);
       toast.success(`✅ 炼金任务提交成功！`);
       analytics.track('炼金', 'quick_alchemy_success', `${getCachedResourceName(recipeId)} x${times}`);
     } catch (error: any) {

@@ -137,9 +137,9 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   }
 
   // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
-  if (tavernExpertEnabled && dataCache.get('tavern')) {
+  if (tavernExpertEnabled && dataCache.has('tavern')) {
     buttons.push({
-      text: tavernExpertManager.getButtonText(),
+      text: await tavernExpertManager.getButtonText(),
       onClick: () => tavernExpertManager.toggle(),
       order: 6,
     });

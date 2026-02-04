@@ -64,7 +64,7 @@ class QuestManager {
   }
 
   private async fetchAndCompleteQuests(returnUpdatedList = true): Promise<Quest[]> {
-    const res = await ws.sendAndListen('quest:list');
+    const res = await ws.request('quest:list');
     let quests = res.payload.data || [];
 
     const completedCount = quests.filter((q) => q.status === 'DONE').length;
@@ -75,7 +75,7 @@ class QuestManager {
       toast.hideProgress('quest');
       await sleep(1000);
       if (returnUpdatedList) {
-        const res = await ws.sendAndListen('quest:list');
+        const res = await ws.request('quest:list');
         quests = res.payload.data || [];
       }
     }
@@ -84,7 +84,7 @@ class QuestManager {
   }
 
   async completeAll(): Promise<void> {
-    await ws.sendAndListen('quest:completeAll');
+    await ws.request('quest:completeAll');
     toast.success(`✅ 提交任务完成`);
     logger.success(`已提交任务完成`);
   }
@@ -108,7 +108,7 @@ class QuestManager {
         break;
       }
 
-      const res = await ws.sendAndListen('quest:reroll', { questUuid: current.uuid });
+      const res = await ws.request('quest:reroll', { questUuid: current.uuid });
       const updated = res.payload?.data?.newQuest;
 
       if (!updated?.title) {
@@ -151,16 +151,14 @@ class QuestManager {
     for (let i = 0; i < quests.length; i++) {
       onProgress?.(i + 1, quests.length);
       try {
-        await ws.sendAndWaitEvent(
-          'task:immediatelyStart',
-          {
-            actionId: quests[i].target.actionId,
-            repeatCount: quests[i].target.count,
-            currentRepeat: 0,
-            createTime: Date.now(),
-          },
-          'actionQueueUpdated',
-        );
+        const waitPromise = eventBus.waitFor('actionQueueUpdated');
+        await ws.emit('task:immediatelyStart', {
+          actionId: quests[i].target.actionId,
+          repeatCount: quests[i].target.count,
+          currentRepeat: 0,
+          createTime: Date.now(),
+        });
+        await waitPromise;
         // 不加这句会有重复的任务 不懂
         await sleep(1000);
       } catch (error) {
