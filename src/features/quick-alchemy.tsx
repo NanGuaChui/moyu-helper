@@ -8,7 +8,7 @@ import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
 import { analytics, getResourceDetail, debounce, sleep } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
-import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, TAG_RESOURCE_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
+import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
 interface RecipeInput {
   [key: string]: { count: number };
@@ -38,8 +38,29 @@ function isMonsterEssence(materialId: string): boolean {
   return materialId.startsWith('(monster_essence_lv');
 }
 
+function getTagResources(tagStr: string): string[] {
+  const cached = sessionStorage.getItem(`alchemy_tag_${tagStr}`);
+  if (cached) return JSON.parse(cached);
+
+  const match = tagStr.match(/^\(([^)]+)\)$/);
+  if (!match) return [];
+
+  const tags = match[1].split(',').map((t) => t.trim());
+  const resources = (window as any).tAllGameResource;
+  if (!resources) return [];
+
+  const result = Object.keys(resources).filter((key) => {
+    const alchemyTag = resources[key]?.alchemyTag;
+    if (!alchemyTag || !Array.isArray(alchemyTag)) return false;
+    return tags.every((tag) => alchemyTag.includes(tag));
+  });
+
+  sessionStorage.setItem(`alchemy_tag_${tagStr}`, JSON.stringify(result));
+  return result;
+}
+
 function isTagResource(materialId: string): boolean {
-  return !!TAG_RESOURCE_MAP[materialId];
+  return materialId.startsWith('(') && materialId.endsWith(')');
 }
 
 class AlchemyManager {
@@ -166,7 +187,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
 
       for (const materialId of Object.keys(currentRecipe.inputs)) {
         if (isTagResource(materialId)) {
-          const resources = TAG_RESOURCE_MAP[materialId];
+          const resources = getTagResources(materialId);
           const opts = resources
             .map((id) => ({
               id,

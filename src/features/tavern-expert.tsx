@@ -44,9 +44,9 @@ class TavernExpertManager {
           } else {
             toast.success('✅ 强化专家已恢复');
           }
+        } else {
+          toast.success('✅ 强化专家已恢复');
         }
-
-        toast.success('✅ 强化专家已恢复');
       }
       // 触发dataCache更新
       ws.send('tavern:getMyExperts');

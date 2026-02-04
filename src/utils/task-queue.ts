@@ -11,8 +11,6 @@ import { sleep } from '.';
 
 interface TaskQueueConfig {
   interval: number;
-  batchSize: number;
-  batchDelay: number;
 }
 
 interface QueuedTask<T> {
@@ -25,7 +23,6 @@ class TaskQueue {
   private queue: QueuedTask<any>[] = [];
   private processing = false;
   private taskCount = 0;
-  private countdownToast: boolean = false;
   private config: TaskQueueConfig;
 
   constructor(config: TaskQueueConfig) {
@@ -36,14 +33,6 @@ class TaskQueue {
   setConfig(config: Partial<TaskQueueConfig>): void {
     Object.assign(this.config, config);
     logger.debug('任务队列配置已更新', this.config);
-  }
-
-  setBatchDelay(ms: number): void {
-    this.config.batchDelay = Math.max(0, ms);
-  }
-
-  setBatchSize(size: number): void {
-    this.config.batchSize = Math.max(1, size);
   }
 
   setInterval(ms: number): void {
@@ -72,23 +61,6 @@ class TaskQueue {
     });
   }
 
-  private async waitForBatch(): Promise<void> {
-    const seconds = Math.floor(this.config.batchDelay / 1000);
-    toast.progress(`已执行 ${this.taskCount} 个任务，暂停 ${seconds} 秒...`);
-
-    for (let i = seconds; i > 0; i--) {
-      toast.progress(`已执行 ${this.taskCount} 个任务，暂停 ${i} 秒...`);
-      await sleep(1000);
-    }
-
-    toast.hideProgress();
-
-    // 自动重置计数器（如果队列为空）
-    if (this.queue.length === 0) {
-      this.resetCount();
-    }
-  }
-
   private async process(): Promise<void> {
     if (this.processing) return;
     this.processing = true;
@@ -103,10 +75,7 @@ class TaskQueue {
           item.resolve(result);
           this.taskCount++;
 
-          // 批次控制
-          if (this.taskCount % this.config.batchSize === 0 && this.queue.length > 0) {
-            await this.waitForBatch();
-          } else if (this.config.interval > 0) {
+          if (this.config.interval > 0) {
             await sleep(this.config.interval);
           }
         } catch (error) {
@@ -116,6 +85,7 @@ class TaskQueue {
       }
     } finally {
       this.processing = false;
+      logger.debug(`任务队列处理完成，总计执行 ${this.taskCount} 个任务`);
     }
   }
 
@@ -124,28 +94,21 @@ class TaskQueue {
     this.queue = [];
     this.processing = false;
     this.taskCount = 0;
-    toast.hideProgress();
-    this.countdownToast = false;
+    toast.hideProgress('task-queue');
     logger.info('任务队列已销毁');
   }
 
   async reload(): Promise<void> {
-    this.config.batchSize = await appConfig.QUEST_BATCH_SIZE.get();
     this.config.interval = await appConfig.TASK_INTERVAL.get();
-    this.config.batchDelay = await appConfig.BATCH_DELAY.get();
     logger.info('任务队列配置已刷新');
   }
 }
 
 export const taskQueue = new TaskQueue({
   interval: appConfig.TASK_INTERVAL.defaultValue,
-  batchSize: appConfig.QUEST_BATCH_SIZE.defaultValue,
-  batchDelay: appConfig.BATCH_DELAY.defaultValue,
 });
 
 // 初始化配置
 (async () => {
-  taskQueue.setBatchSize(await appConfig.QUEST_BATCH_SIZE.get());
   taskQueue.setInterval(await appConfig.TASK_INTERVAL.get());
-  taskQueue.setBatchDelay(await appConfig.BATCH_DELAY.get());
 })();

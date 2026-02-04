@@ -21,7 +21,7 @@ interface CraftStep {
 // ==================== 制造管理器 ====================
 
 class CraftManager {
-  private categories = DEFAULT_CRAFT_ITEMS;
+  private categories: CraftItemCategory[] = DEFAULT_CRAFT_ITEMS;
   private running = false;
 
   getCraftCategories(): CraftItemCategory[] {
@@ -51,11 +51,33 @@ class CraftManager {
   }
 
   private findByRewardId(rewardId: string): CraftItem | undefined {
+    const candidates: CraftItem[] = [];
     for (const category of this.categories) {
-      const item = category.items.find((item) => item.rewards.some((r) => r.itemId === rewardId));
-      if (item) return item;
+      for (const item of category.items) {
+        if (item.rewards.some((r) => r.itemId === rewardId)) {
+          candidates.push(item);
+        }
+      }
     }
-    return undefined;
+
+    if (candidates.length === 0) return undefined;
+    if (candidates.length === 1) return candidates[0];
+
+    const basicResources = new Set(['berry', 'fish', 'wood', 'stone', 'coal', 'treasureMap']);
+
+    const countNonBasicDeps = (item: CraftItem): number => {
+      if (!item.dependencies) return 0;
+      return item.dependencies.filter((dep) => !basicResources.has(dep.itemId)).length;
+    };
+
+    return candidates.reduce((best, current) =>
+      countNonBasicDeps(current) < countNonBasicDeps(best) ? current : best,
+    );
+  }
+
+  isBannedForKitty(actionId: string): boolean {
+    const item = this.findByActionId(actionId);
+    return item?.banToKitty === true;
   }
 
   buildPlan(actionId: string, targetCount: number): CraftStep[] {
@@ -170,9 +192,9 @@ class CraftManager {
     let actionQueue = await dataCache.getAsync('actionQueue');
     if (actionQueue.length > 0) {
       const totalCount = actionQueue.length;
-      toast.progress(`正在清空任务 (0/${totalCount})`);
+      toast.progress(`正在清空任务 (0/${totalCount})`, 'craft');
       for (let i = actionQueue.length - 1; i >= 0; i--) {
-        toast.progress(`正在清空任务 (${totalCount - i}/${totalCount})`);
+        toast.progress(`正在清空任务 (${totalCount - i}/${totalCount})`, 'craft');
         await ws.sendAndWaitEvent('removeTaskFromQueue', i, 'actionQueueUpdated');
         actionQueue = await dataCache.getAsync('actionQueue');
       }
@@ -185,9 +207,9 @@ class CraftManager {
 
     if (existingTasks.length > 0) {
       const totalCount = existingTasks.length;
-      toast.progress(`正在清空 ${kittyName} 的任务 (0/${totalCount})`);
+      toast.progress(`正在清空 ${kittyName} 的任务 (0/${totalCount})`, 'craft');
       for (let i = existingTasks.length - 1; i >= 0; i--) {
-        toast.progress(`正在清空 ${kittyName} 的任务 (${totalCount - i}/${totalCount})`);
+        toast.progress(`正在清空 ${kittyName} 的任务 (${totalCount - i}/${totalCount})`, 'craft');
         await ws.sendAndListen('kitty:removeTask', { kittyUuid, index: i });
       }
     }
@@ -212,7 +234,7 @@ class CraftManager {
       const optimized = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info('无需制造');
-        toast.hideProgress();
+        toast.hideProgress('craft');
         return;
       }
 
@@ -220,11 +242,11 @@ class CraftManager {
         await this.clearPlayerTasks();
       }
 
-      toast.progress('正在添加制造任务...');
+      toast.progress('正在添加制造任务...', 'craft');
 
       for (let i = 0; i < optimized.length; i++) {
         const step = optimized[i];
-        toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`);
+        toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`, 'craft');
 
         await ws.sendAndWaitEvent(
           'addTaskToQueue',
@@ -238,7 +260,7 @@ class CraftManager {
         );
       }
 
-      toast.progress('正在添加默认任务...');
+      toast.progress('正在添加默认任务...', 'craft');
       const defaultTasks = await appConfig.PLAYER_DEFAULT_TASKS.get();
       for (const taskId of defaultTasks) {
         if (taskId) {
@@ -255,13 +277,13 @@ class CraftManager {
         }
       }
 
-      toast.hideProgress();
+      toast.hideProgress('craft');
       toast.success(`已提交 ${optimized.length} 个制造任务`);
       analytics.track('制造', 'player_craft', `${optimized.length}个任务`);
     } catch (error) {
       logger.error('制造失败', error);
       toast.error('制造失败');
-      toast.hideProgress();
+      toast.hideProgress('craft');
     } finally {
       this.running = false;
     }
@@ -285,19 +307,19 @@ class CraftManager {
     try {
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
-        toast.hideProgress();
+        toast.hideProgress('craft');
         return;
       }
 
       const optimized = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info(`🐱 ${kittyName} 无需制造`);
-        toast.hideProgress();
+        toast.hideProgress('craft');
         return;
       }
 
       const tasks = optimized.slice(0, 2);
-      toast.progress(`正在为 ${kittyName} 安排制造任务...`);
+      toast.progress(`正在为 ${kittyName} 安排制造任务...`, 'craft');
 
       if (clearTasks) {
         await this.clearKittyTasks(kittyUuid, kittyName);
@@ -305,7 +327,7 @@ class CraftManager {
 
       for (let i = 0; i < tasks.length; i++) {
         const step = tasks[i];
-        toast.progress(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`);
+        toast.progress(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`, 'craft');
 
         await ws.sendAndListen('kitty:addTask', {
           kittyUuid,
@@ -333,14 +355,14 @@ class CraftManager {
         addedDefaultTask = true;
       }
 
-      toast.hideProgress();
+      toast.hideProgress('craft');
       const taskCount = addedDefaultTask ? tasks.length + 1 : tasks.length;
       toast.success(`🐱 ${kittyName} 已提交 ${taskCount} 个任务`);
       analytics.track('制造', 'kitty_craft', `${kittyName}-${taskCount}个任务`);
     } catch (error) {
       logger.error(`🐱 ${kittyName} 制造失败`, error);
       toast.error('制造失败');
-      toast.hideProgress();
+      toast.hideProgress('craft');
     } finally {
       this.running = false;
     }
@@ -378,6 +400,8 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [kitties, setKitties] = useState<any[]>([]);
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
+
+  const isKittyBanned = useMemo(() => craftManager.isBannedForKitty(selectedItem), [selectedItem]);
 
   const itemOptions = craftManager.getCraftCategories().map((category) => ({
     label: category.label,
@@ -581,7 +605,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
 
       <Button onClick={handleCraft}>开始制造</Button>
 
-      {kitties.length > 0 && (
+      {kitties.length > 0 && !isKittyBanned && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
           {kitties.map((kitty, index) => (
             <Button

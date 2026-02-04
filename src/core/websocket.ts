@@ -45,9 +45,8 @@ class WebSocketMonitor {
 
   private startUserCheck(): void {
     this.checkTimer = setInterval(() => {
-      if (this.userInfo && this.pendingMessages.size > 0) {
-        this.processPending();
-      }
+      if (!this.userInfo || this.pendingMessages.size === 0) return;
+      this.processPending();
     }, USER_CHECK_INTERVAL);
   }
 
@@ -74,19 +73,31 @@ class WebSocketMonitor {
 
   once(event: string | string[], handler: EventHandler): Unsubscribe {
     const events = Array.isArray(event) ? event : [event];
+    let called = false;
     const wrapper = (data: WebSocketMessage) => {
-      // 先清理所有事件的监听器，避免重复触发
+      if (called) return;
+      called = true;
       events.forEach((evt) => this.handlers.get(evt)?.delete(wrapper));
       handler(data);
     };
-    return this.on(event, wrapper);
+    events.forEach((evt) => {
+      const handlers = this.handlers.get(evt) ?? new Set<EventHandler>();
+      handlers.add(wrapper);
+      this.handlers.set(evt, handlers);
+    });
+    return () => {
+      if (called) return;
+      called = true;
+      events.forEach((evt) => this.handlers.get(evt)?.delete(wrapper));
+    };
   }
 
   awaitOnce(event: string | string[], timeout = 10000): Promise<WebSocketMessage> {
     return new Promise((resolve, reject) => {
+      const eventStr = Array.isArray(event) ? event.join(', ') : event;
       const timer = setTimeout(() => {
         unsubscribe();
-        reject(new Error(`等待事件 [${Array.isArray(event) ? event.join(', ') : event}] 超时`));
+        reject(new Error(`等待事件 [${eventStr}] 超时`));
       }, timeout);
 
       const unsubscribe = this.once(event, (data) => {
@@ -130,28 +141,40 @@ class WebSocketMonitor {
   }
 
   async sendAndWaitEvent(method: string, data: any, eventName: string, timeout = 10000): Promise<void> {
-    const promise = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
+    let handler: ((eventData: any) => void) | null = null;
+    let timer: NodeJS.Timeout | null = null;
+
+    const cleanup = () => {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
+      }
+      if (handler) {
         eventBus.off(eventName, handler);
+        handler = null;
+      }
+    };
+
+    const promise = new Promise<void>((resolve, reject) => {
+      timer = setTimeout(() => {
+        cleanup();
         reject(new Error(`等待事件 [${eventName}] 超时`));
       }, timeout);
 
-      const handler = (eventData: any) => {
-        try {
-          clearTimeout(timer);
-          eventBus.off(eventName, handler);
-          resolve(eventData);
-        } catch (error) {
-          clearTimeout(timer);
-          eventBus.off(eventName, handler);
-          reject(error);
-        }
+      handler = (eventData: any) => {
+        cleanup();
+        resolve(eventData);
       };
       eventBus.on(eventName, handler);
     });
 
-    await this.send(method, data);
-    return promise;
+    try {
+      await this.send(method, data);
+      return await promise;
+    } catch (error) {
+      cleanup();
+      throw error;
+    }
   }
 
   async send(method: string, data: any = {}): Promise<void> {
@@ -294,14 +317,10 @@ class WebSocketMonitor {
       if (jsonStart === -1) return;
 
       const [event, payloadStr] = JSON.parse(data.slice(jsonStart));
+      if (!event) return;
 
-      if (event === 'dispatchTaskQueueToClient') {
-        console.log(event, payloadStr);
-      }
-      if (event) {
-        const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
-        this.dispatch({ event, payload });
-      }
+      const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
+      this.dispatch({ event, payload });
     } catch {
       // 解析失败静默跳过
     }
@@ -311,21 +330,19 @@ class WebSocketMonitor {
     const evt = this.pendingBinary.shift();
     if (!evt) return;
 
+    const bin = new Uint8Array(data);
     try {
-      const bin = new Uint8Array(data);
       const text = pako.inflate(bin, { to: 'string' });
-
       let parsed: any;
       try {
         parsed = JSON.parse(text);
       } catch {
         parsed = text;
       }
-
       this.dispatch({ event: evt.event, payload: parsed });
     } catch {
       // 解压失败，可能是明文，直接传递原始数据
-      this.dispatch({ event: evt.event, payload: new Uint8Array(data) });
+      this.dispatch({ event: evt.event, payload: bin });
     }
   }
 
@@ -333,18 +350,17 @@ class WebSocketMonitor {
     if (!data?.event) return;
 
     const handlers = this.handlers.get(data.event);
-    // 关键优化：没有监听器则直接跳过，避免不必要的日志和处理
     if (!handlers || handlers.size === 0) return;
 
     logger.debug(`接收事件: ${data.event}`, data.payload);
 
-    handlers.forEach((handler) => {
+    for (const handler of handlers) {
       try {
         handler(data);
       } catch (error) {
         logger.error(`事件处理失败 [${data.event}]`, error);
       }
-    });
+    }
   }
 
   destroy(): void {
