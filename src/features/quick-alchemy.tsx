@@ -1,196 +1,49 @@
-/**
- * 快速炼金功能模块
- */
-
 import { render } from 'preact';
-import { useState, useEffect, useMemo } from 'preact/hooks';
+import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
 import { analytics, getResourceDetail, getTAllGameResource } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
 import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
-// ==================== 类型定义 ====================
-
-interface RecipeInput {
-  [key: string]: { count: number };
-}
-
-interface MaterialPreview {
-  name: string;
-  required: number;
-  available: number;
-}
-
-interface Inventory {
-  [key: string]: { count: number };
-}
-
-interface MaterialSelection {
-  essence: string;
-  tags: Record<string, string>;
-}
-
-interface SelectOption {
-  value: string;
-  label: string;
-}
-
-// ==================== 常量 ====================
-
 const MAX_LIMIT = 1000;
-const nameCache = new Map<string, string>();
+const resourceNameCache = new Map<string, string>();
 
-// ==================== 工具函数 ====================
-
-function getResourceName(id: string): string {
-  if (!nameCache.has(id)) {
-    nameCache.set(id, getResourceDetail(id)?.name || id);
+const getResourceName = (id: string) => {
+  if (!resourceNameCache.has(id)) {
+    resourceNameCache.set(id, getResourceDetail(id)?.name || id);
   }
-  return nameCache.get(id)!;
-}
+  return resourceNameCache.get(id)!;
+};
 
-function isMonsterEssence(materialId: string): boolean {
-  return materialId.startsWith('(monster_essence_lv');
-}
+const isEssence = (id: string) => id.startsWith('(monster_essence_lv');
+const isTag = (id: string) => id.startsWith('(') && id.endsWith(')');
 
-function isTagResource(materialId: string): boolean {
-  return materialId.startsWith('(') && materialId.endsWith(')') && !isMonsterEssence(materialId);
-}
-
-async function getTagResources(tagStr: string): Promise<string[]> {
-  const cached = sessionStorage.getItem(`alchemy_tag_${tagStr}`);
+const fetchTagResources = async (tag: string): Promise<string[]> => {
+  const cacheKey = `alchemy_tag_${tag}`;
+  const cached = sessionStorage.getItem(cacheKey);
   if (cached) return JSON.parse(cached);
 
-  const match = tagStr.match(/^\(([^)]+)\)$/);
+  const match = tag.match(/^\(([^)]+)\)$/);
   if (!match) return [];
 
   const tags = match[1].split(',').map((t) => t.trim());
-  const resources = await getTAllGameResource();
-
-  const result = Object.keys(resources).filter((key) => {
-    const alchemyTag = resources[key]?.alchemyTag;
-    if (!alchemyTag || !Array.isArray(alchemyTag)) return false;
-    return tags.every((tag) => alchemyTag.includes(tag));
+  const allResources = await getTAllGameResource();
+  const filtered = Object.keys(allResources).filter((key) => {
+    const alchemyTag = allResources[key]?.alchemyTag;
+    return Array.isArray(alchemyTag) && tags.every((t) => alchemyTag.includes(t));
   });
 
-  sessionStorage.setItem(`alchemy_tag_${tagStr}`, JSON.stringify(result));
-  return result;
-}
+  sessionStorage.setItem(cacheKey, JSON.stringify(filtered));
+  return filtered;
+};
 
-function findRecipe(recipeId: string): AlchemyItem | null {
-  for (const category of ALCHEMY_RECIPES) {
-    const item = category.items.find((i) => i.value === recipeId);
-    if (item) return item;
-  }
-  return null;
-}
-
-// ==================== 核心逻辑 ====================
-
-function calculateMaxValues(
-  recipe: AlchemyItem,
-  recipeIndex: number,
-  selection: MaterialSelection,
-  inventory: Inventory,
-): { maxMultiplier: number; maxTimes: number } {
-  const currentRecipe = recipe.recipes[recipeIndex];
-  let maxMultiplier = MAX_LIMIT;
-
-  // 计算最大倍数
-  for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-    let available = 0;
-
-    if (isTagResource(materialId)) {
-      const resourceId = selection.tags[materialId];
-      available = resourceId ? inventory[resourceId]?.count || 0 : 0;
-    } else if (isMonsterEssence(materialId)) {
-      available = selection.essence ? inventory[selection.essence]?.count || 0 : 0;
-    } else {
-      available = inventory[materialId]?.count || 0;
-    }
-
-    maxMultiplier = Math.min(maxMultiplier, Math.floor(available / count), Math.floor(MAX_LIMIT / count));
-  }
-
-  maxMultiplier = Math.max(1, maxMultiplier);
-
-  // 计算最大次数
-  let maxTimes = MAX_LIMIT;
-  for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-    let available = 0;
-
-    if (isTagResource(materialId)) {
-      const resourceId = selection.tags[materialId];
-      available = resourceId ? inventory[resourceId]?.count || 0 : 0;
-    } else if (isMonsterEssence(materialId)) {
-      available = selection.essence ? inventory[selection.essence]?.count || 0 : 0;
-    } else {
-      available = inventory[materialId]?.count || 0;
-    }
-
-    maxTimes = Math.min(maxTimes, Math.floor(available / (count * maxMultiplier)));
-  }
-
-  maxTimes = Math.min(Math.max(1, maxTimes), MAX_LIMIT);
-
-  return { maxMultiplier, maxTimes };
-}
-
-async function buildMaterialPreview(
-  recipe: AlchemyItem,
-  recipeIndex: number,
-  selection: MaterialSelection,
-  multiplier: number,
-  times: number,
-  inventory: Inventory,
-): Promise<MaterialPreview[]> {
-  const currentRecipe = recipe.recipes[recipeIndex];
-  const preview: MaterialPreview[] = [];
-
-  for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-    let resourceId = materialId;
-
-    if (isTagResource(materialId)) {
-      resourceId = selection.tags[materialId];
-      if (!resourceId) continue;
-    } else if (isMonsterEssence(materialId)) {
-      resourceId = selection.essence;
-      if (!resourceId) continue;
-    }
-
-    preview.push({
-      name: getResourceName(resourceId),
-      required: count * multiplier * times,
-      available: inventory[resourceId]?.count || 0,
-    });
-  }
-
-  return preview;
-}
-
-// ==================== 炼金管理器 ====================
-
-class AlchemyManager {
-  async quickAlchemy(recipeId: string, inputs: RecipeInput, times: number): Promise<void> {
-    // 验证参数
-    if (times > MAX_LIMIT) {
-      toast.error(`制作次数不能超过 ${MAX_LIMIT}`);
-      return;
-    }
-
-    for (const [materialId, { count }] of Object.entries(inputs)) {
-      if (count > MAX_LIMIT) {
-        toast.error(`材料 ${getResourceName(materialId)} 的数量不能超过 ${MAX_LIMIT}`);
-        return;
-      }
-    }
-
+class AlchemyService {
+  async submit(recipeId: string, inputs: Record<string, { count: number }>, times: number) {
     try {
-      const alchemyData = { input: inputs, times };
       toast.info(`正在提交炼金任务 ${getResourceName(recipeId)} x${times}...`);
-      await ws.request('alchemy:auto:create', alchemyData, 30000);
-      toast.success(`✅ 炼金任务提交成功！`);
+      await ws.request('alchemy:auto:create', { input: inputs, times }, 30000);
+      toast.success('✅ 炼金任务提交成功！');
       analytics.track('炼金', 'quick_alchemy_success', `${getResourceName(recipeId)} x${times}`);
     } catch (error: any) {
       logger.error('炼金失败', error);
@@ -199,226 +52,242 @@ class AlchemyManager {
   }
 }
 
-export const alchemyManager = new AlchemyManager();
+export const alchemyManager = new AlchemyService();
 
-// ==================== 组件 ====================
-
-interface AlchemyPanelProps {
-  onClose: () => void;
-}
-
-function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
-  // 配方状态
-  const [recipeId, setRecipeId] = useState('');
-  const [recipeIndex, setRecipeIndex] = useState(0);
-  const [recipeOptions, setRecipeOptions] = useState<Array<{ label: string; options: SelectOption[] }>>([]);
-
-  // 材料状态
-  const [essenceOptions, setEssenceOptions] = useState<SelectOption[]>([]);
-  const [tagOptions, setTagOptions] = useState<Record<string, SelectOption[]>>({});
-  const [selection, setSelection] = useState<MaterialSelection>({ essence: '', tags: {} });
-
-  // 数量状态
-  const [multiplier, setMultiplier] = useState(1);
+const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
+  const [recipe, setRecipe] = useState('');
+  const [recipeIdx, setRecipeIdx] = useState(0);
+  const [recipeData, setRecipeData] = useState<AlchemyItem | null>(null);
+  const [essence, setEssence] = useState('');
+  const [essenceOpts, setEssenceOpts] = useState<{ value: string; label: string }[]>([]);
+  const [tagMap, setTagMap] = useState<Record<string, string>>({});
+  const [tagOptsMap, setTagOptsMap] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [mult, setMult] = useState(1);
+  const [maxMult, setMaxMult] = useState(MAX_LIMIT);
   const [times, setTimes] = useState(1);
-  const [maxMultiplier, setMaxMultiplier] = useState(MAX_LIMIT);
   const [maxTimes, setMaxTimes] = useState(MAX_LIMIT);
+  const [preview, setPreview] = useState<{ name: string; required: number; available: number }[] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [recipeOpts, setRecipeOpts] = useState<{ label: string; options: { value: string; label: string }[] }[]>([]);
 
-  // UI状态
-  const [preview, setPreview] = useState<MaterialPreview[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const recipe = useMemo(() => (recipeId ? findRecipe(recipeId) : null), [recipeId]);
-
-  // 初始化配方列表
   useEffect(() => {
     (async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const options = ALCHEMY_RECIPES.map((category) => ({
-        label: category.label,
-        options: category.items.map((item) => ({
-          value: item.value,
-          label: `${item.label} (${inventory[item.value]?.count || 0})`,
+      const inv = await dataCache.getAsync('inventory');
+      setRecipeOpts(
+        ALCHEMY_RECIPES.map((cat) => ({
+          label: cat.label,
+          options: cat.items.map((item) => ({
+            value: item.value,
+            label: `${item.label} (${inv[item.value]?.count || 0})`,
+          })),
         })),
-      }));
-      setRecipeOptions(options);
+      );
     })();
   }, []);
 
-  // 配方变化：加载材料选项并计算最大值
   useEffect(() => {
     if (!recipe) {
-      setEssenceOptions([]);
-      setTagOptions({});
-      setSelection({ essence: '', tags: {} });
-      setMaxMultiplier(MAX_LIMIT);
-      setMaxTimes(MAX_LIMIT);
-      setMultiplier(1);
-      setTimes(1);
-      setPreview([]);
+      setRecipeData(null);
+      setEssenceOpts([]);
+      setEssence('');
+      setTagMap({});
+      setTagOptsMap({});
+      setPreview(null);
       return;
     }
 
     (async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const currentRecipe = recipe.recipes[recipeIndex];
-      const newSelection: MaterialSelection = { essence: '', tags: {} };
-      const newEssenceOptions: SelectOption[] = [];
-      const newTagOptions: Record<string, SelectOption[]> = {};
+      const found = ALCHEMY_RECIPES.flatMap((c) => c.items).find((i) => i.value === recipe);
+      setRecipeData(found || null);
+      if (!found) return;
 
-      // 加载材料选项
-      for (const materialId of Object.keys(currentRecipe.inputs)) {
-        if (isTagResource(materialId)) {
-          const resources = await getTagResources(materialId);
-          const options = resources
-            .map((id) => ({
-              id,
-              count: inventory[id]?.count || 0,
-              label: `${getResourceName(id)} (${inventory[id]?.count || 0})`,
-            }))
+      const inv = await dataCache.getAsync('inventory');
+      const curr = found.recipes[recipeIdx];
+      const newTagMap: Record<string, string> = {};
+      const newTagOpts: Record<string, { value: string; label: string }[]> = {};
+      let newEssence = '';
+      const newEssenceOpts: { value: string; label: string; count: number }[] = [];
+
+      for (const matId of Object.keys(curr.inputs)) {
+        if (isTag(matId)) {
+          const res = await fetchTagResources(matId);
+          const opts = res
+            .map((id) => ({ id, count: inv[id]?.count || 0, label: `${getResourceName(id)} (${inv[id]?.count || 0})` }))
             .sort((a, b) => b.count - a.count);
-
-          newTagOptions[materialId] = options.map((o) => ({ value: o.id, label: o.label }));
-          newSelection.tags[materialId] = options[0]?.id || resources[0] || '';
-        } else if (isMonsterEssence(materialId)) {
-          const level = ESSENCE_LEVEL_MAP[recipeId];
-          if (level) {
-            const essenceKey = `monster_essence_lv${level}` as keyof typeof ESSENCE_CLASSIFICATION;
-            const materials = ESSENCE_CLASSIFICATION[essenceKey];
-            if (materials?.length > 0) {
-              const options = materials
-                .map((id) => ({
-                  value: id,
-                  label: `${getResourceName(id)} (${inventory[id]?.count || 0})`,
-                  count: inventory[id]?.count || 0,
-                }))
+          newTagOpts[matId] = opts.map((o) => ({ value: o.id, label: o.label }));
+          newTagMap[matId] = opts[0]?.id || res[0];
+        } else if (isEssence(matId)) {
+          const lvl = ESSENCE_LEVEL_MAP[recipe];
+          if (lvl) {
+            const key = `monster_essence_lv${lvl}` as keyof typeof ESSENCE_CLASSIFICATION;
+            const mats = ESSENCE_CLASSIFICATION[key];
+            if (mats?.length) {
+              const opts = mats
+                .map((id) => ({ value: id, label: `${getResourceName(id)} (${inv[id]?.count || 0})`, count: inv[id]?.count || 0 }))
                 .sort((a, b) => b.count - a.count);
-
-              newEssenceOptions.push(...options);
-              newSelection.essence = options[0]?.value || '';
+              newEssenceOpts.push(...opts);
+              newEssence = opts[0]?.value || '';
             }
           }
         }
       }
 
-      // 计算最大值
-      const { maxMultiplier: maxMult, maxTimes: maxT } = calculateMaxValues(
-        recipe,
-        recipeIndex,
-        newSelection,
-        inventory,
-      );
-
-      // 批量更新状态
-      setEssenceOptions(newEssenceOptions);
-      setTagOptions(newTagOptions);
-      setSelection(newSelection);
-      setMaxMultiplier(maxMult);
-      setMaxTimes(maxT);
-      setMultiplier(maxMult);
-      setTimes(maxT);
-    })();
-  }, [recipe, recipeIndex, recipeId]);
-
-  // 材料变化：重新计算最大值
-  useEffect(() => {
-    if (!recipe) return;
-
-    (async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const { maxMultiplier: maxMult, maxTimes: maxT } = calculateMaxValues(
-        recipe,
-        recipeIndex,
-        selection,
-        inventory,
-      );
-
-      setMaxMultiplier(maxMult);
-      setMaxTimes(maxT);
-      if (multiplier > maxMult) setMultiplier(maxMult);
-      if (times > maxT) setTimes(maxT);
-    })();
-  }, [selection.essence, JSON.stringify(selection.tags)]);
-
-  // 倍数变化：重新计算最大次数
-  useEffect(() => {
-    if (!recipe) return;
-
-    (async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const currentRecipe = recipe.recipes[recipeIndex];
-      let maxT = MAX_LIMIT;
-
-      for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-        let available = 0;
-
-        if (isTagResource(materialId)) {
-          const resourceId = selection.tags[materialId];
-          available = resourceId ? inventory[resourceId]?.count || 0 : 0;
-        } else if (isMonsterEssence(materialId)) {
-          available = selection.essence ? inventory[selection.essence]?.count || 0 : 0;
-        } else {
-          available = inventory[materialId]?.count || 0;
-        }
-
-        maxT = Math.min(maxT, Math.floor(available / (count * multiplier)));
+      let calcMaxMult = MAX_LIMIT;
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
       }
+      calcMaxMult = Math.max(1, calcMaxMult);
 
-      maxT = Math.min(Math.max(1, maxT), MAX_LIMIT);
-      setMaxTimes(maxT);
-      if (times > maxT) setTimes(maxT);
+      let calcMaxTimes = MAX_LIMIT;
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxTimes = Math.min(calcMaxTimes, Math.floor(avail / (count * calcMaxMult)));
+      }
+      calcMaxTimes = Math.min(Math.max(1, calcMaxTimes), MAX_LIMIT);
+
+      setEssenceOpts(newEssenceOpts);
+      setEssence(newEssence);
+      setTagMap(newTagMap);
+      setTagOptsMap(newTagOpts);
+      setMaxMult(calcMaxMult);
+      setMult(calcMaxMult);
+      setMaxTimes(calcMaxTimes);
+      setTimes(calcMaxTimes);
     })();
-  }, [multiplier]);
+  }, [recipe, recipeIdx]);
 
-  // 更新预览
   useEffect(() => {
-    if (!recipe) {
-      setPreview([]);
+    if (!recipe || !recipeData) {
+      setPreview(null);
       return;
     }
 
     (async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const preview = await buildMaterialPreview(recipe, recipeIndex, selection, multiplier, times, inventory);
-      setPreview(preview);
-    })();
-  }, [recipe, recipeIndex, selection.essence, JSON.stringify(selection.tags), multiplier, times]);
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      const prev: { name: string; required: number; available: number }[] = [];
 
-  // 提交炼金
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let resId = matId;
+        if (isTag(matId)) {
+          resId = tagMap[matId];
+          if (!resId) continue;
+        } else if (isEssence(matId)) {
+          resId = essence;
+          if (!resId) continue;
+        }
+        prev.push({ name: getResourceName(resId), required: count * mult * times, available: inv[resId]?.count || 0 });
+      }
+      setPreview(prev);
+    })();
+  }, [essence, tagMap, times, mult, recipeData]);
+
+  useEffect(() => {
+    if (!recipeData) return;
+
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      let calcMaxMult = MAX_LIMIT;
+
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
+      }
+      calcMaxMult = Math.max(1, calcMaxMult);
+      setMaxMult(calcMaxMult);
+      if (mult > calcMaxMult) setMult(calcMaxMult);
+
+      const calcMaxTimes = Math.min(
+        Math.max(
+          1,
+          Math.min(
+            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
+              let avail = 0;
+              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+              else avail = inv[matId]?.count || 0;
+              return Math.floor(avail / (count * (mult > calcMaxMult ? calcMaxMult : mult)));
+            }),
+          ),
+        ),
+        MAX_LIMIT,
+      );
+      setMaxTimes(calcMaxTimes);
+      if (times > calcMaxTimes) setTimes(calcMaxTimes);
+    })();
+  }, [essence, tagMap]);
+
+  useEffect(() => {
+    if (!recipeData) return;
+
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      const calcMaxTimes = Math.min(
+        Math.max(
+          1,
+          Math.min(
+            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
+              let avail = 0;
+              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+              else avail = inv[matId]?.count || 0;
+              return Math.floor(avail / (count * mult));
+            }),
+          ),
+        ),
+        MAX_LIMIT,
+      );
+      setMaxTimes(calcMaxTimes);
+      setTimes(calcMaxTimes);
+    })();
+  }, [mult]);
+
   const handleSubmit = async () => {
-    if (!recipe) {
+    if (!recipe || !recipeData) {
       toast.warning('请选择配方');
       return;
     }
 
-    const currentRecipe = recipe.recipes[recipeIndex];
-    const finalInputs: RecipeInput = {};
+    const curr = recipeData.recipes[recipeIdx];
+    const inputs: Record<string, { count: number }> = {};
 
-    for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-      if (isTagResource(materialId)) {
-        const resourceId = selection.tags[materialId];
-        if (!resourceId) {
-          toast.warning(`请选择 ${materialId} 的材料`);
+    for (const [matId, { count }] of Object.entries(curr.inputs)) {
+      if (isTag(matId)) {
+        const sel = tagMap[matId];
+        if (!sel) {
+          toast.warning(`请选择 ${matId} 的材料`);
           return;
         }
-        finalInputs[resourceId] = { count: count * multiplier };
-      } else if (isMonsterEssence(materialId)) {
-        if (!selection.essence) {
+        inputs[sel] = { count: count * mult };
+      } else if (isEssence(matId)) {
+        if (!essence) {
           toast.warning('请选择怪物精华');
           return;
         }
-        finalInputs[selection.essence] = { count: count * multiplier };
+        inputs[essence] = { count: count * mult };
       } else {
-        finalInputs[materialId] = { count: count * multiplier };
+        inputs[matId] = { count: count * mult };
       }
     }
 
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
-      await alchemyManager.quickAlchemy(recipeId, finalInputs, times);
+      await alchemyManager.submit(recipe, inputs, times);
       onClose();
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -435,63 +304,52 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
 
       <FormGroup label="选择配方">
         <Select
-          value={recipeId}
-          onChange={(value) => {
-            setRecipeId(value);
-            setRecipeIndex(0);
+          value={recipe}
+          onChange={(v) => {
+            setRecipe(v);
+            setRecipeIdx(0);
           }}
-          options={recipeOptions}
+          options={recipeOpts}
           placeholder="-- 请选择配方 --"
         />
       </FormGroup>
 
-      {recipe && recipe.recipes.length > 1 && (
+      {recipeData && recipeData.recipes.length > 1 && (
         <FormGroup label="配方选项">
           <Select
-            value={String(recipeIndex)}
-            onChange={(value) => setRecipeIndex(Number(value))}
-            options={recipe.recipes.map((r, idx) => ({
-              value: String(idx),
-              label: r.description || `配方 ${idx + 1}`,
-            }))}
+            value={String(recipeIdx)}
+            onChange={(v) => setRecipeIdx(Number(v))}
+            options={recipeData.recipes.map((r, i) => ({ value: String(i), label: r.description || `配方 ${i + 1}` }))}
           />
         </FormGroup>
       )}
 
-      {essenceOptions.length > 0 && (
+      {essenceOpts.length > 0 && (
         <FormGroup label="选择怪物精华">
-          <Select
-            value={selection.essence}
-            onChange={(value) => setSelection({ ...selection, essence: value })}
-            options={essenceOptions}
-          />
+          <Select value={essence} onChange={setEssence} options={essenceOpts} />
         </FormGroup>
       )}
 
-      {Object.entries(tagOptions).map(([tag, options]) => (
+      {Object.entries(tagOptsMap).map(([tag, opts]) => (
         <FormGroup key={tag} label={`选择 ${tag}`}>
-          <Select
-            value={selection.tags[tag] || ''}
-            onChange={(value) => setSelection({ ...selection, tags: { ...selection.tags, [tag]: value } })}
-            options={options}
-          />
+          <Select value={tagMap[tag] || ''} onChange={(v) => setTagMap({ ...tagMap, [tag]: v })} options={opts} />
         </FormGroup>
       ))}
 
-      <FormGroup label={`材料倍数: ${multiplier} (1 - ${maxMultiplier})`}>
-        <Slider value={multiplier} onInput={setMultiplier} min={1} max={maxMultiplier} step={1} />
+      <FormGroup label={`材料倍数: ${mult} (1 - ${maxMult})`}>
+        <Slider value={mult} onInput={setMult} min={1} max={maxMult} step={1} />
       </FormGroup>
 
       <FormGroup label={`制作次数: ${times} (1 - ${maxTimes})`}>
         <Slider value={times} onInput={setTimes} min={1} max={maxTimes} step={1} />
       </FormGroup>
 
-      {preview.length > 0 && (
+      {preview && (
         <Card title="材料预览" style={{ minHeight: '60px' }}>
           <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
-            {preview.map((item, idx) => (
-              <div key={idx} style={{ color: '#52c41a' }}>
-                {item.name}: {item.required} / {item.available}
+            {preview.map((p, i) => (
+              <div key={i} style={{ color: '#52c41a' }}>
+                {p.name}: {p.required} / {p.available}
               </div>
             ))}
           </div>
@@ -499,22 +357,22 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={isSubmitting}>
+        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={submitting}>
           取消
         </Button>
-        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={isSubmitting}>
-          {isSubmitting ? '提交中...' : '提交'}
+        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={submitting}>
+          {submitting ? '提交中...' : '提交'}
         </Button>
       </div>
     </>
   );
-}
+};
 
 export class AlchemyPanel {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
 
-  show(): void {
+  show() {
     if (this.isOpen) return;
     this.isOpen = true;
 
@@ -525,18 +383,15 @@ export class AlchemyPanel {
 
     render(
       <Modal isOpen={true} onClose={() => this.hide()} title="⚗️ 快速炼金">
-        <AlchemyPanelContent onClose={() => this.hide()} />
+        <AlchemyForm onClose={() => this.hide()} />
       </Modal>,
       this.container,
     );
   }
 
-  hide(): void {
+  hide() {
     if (!this.isOpen) return;
     this.isOpen = false;
-
-    if (this.container) {
-      render(null, this.container);
-    }
+    if (this.container) render(null, this.container);
   }
 }
