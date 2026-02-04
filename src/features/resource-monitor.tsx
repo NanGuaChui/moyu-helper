@@ -110,6 +110,7 @@ class ResourceMonitor {
       logger.success('资源监控器初始化完成');
     } catch (error) {
       logger.error('加载资源监控配置失败', error);
+      toast.error('资源监控初始化失败');
     }
   }
 
@@ -269,6 +270,7 @@ class ResourceMonitor {
           hasBought = true;
         } catch (error) {
           logger.error(`购买 ${item.name} 失败`, error);
+          toast.warning(`购买 ${item.name} 失败`);
         }
       }
     }

@@ -58,6 +58,7 @@ class SatietyManager {
       }
     } catch (error) {
       logger.error('检查饱食度失败', error);
+      toast.error('检查饱食度失败');
     } finally {
       this.isChecking = false;
     }

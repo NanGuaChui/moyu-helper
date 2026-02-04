@@ -164,6 +164,7 @@ async function initUI(): Promise<void> {
     await checkAndNotifyNoFeatures();
   } catch (error) {
     logger.error('悬浮面板初始化失败', error);
+    toast.error('界面初始化失败，请刷新页面');
   }
 }
 

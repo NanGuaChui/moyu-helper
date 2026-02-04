@@ -147,7 +147,6 @@ class DataCacheManager {
       // 设置超时定时器
       const timer = setTimeout(() => {
         this.removePendingResolver(key, resolver);
-        logger.error(`获取 ${key} 数据超时`);
         reject(new Error(`获取 ${key} 数据超时`));
       }, DEFAULT_TIMEOUT);
 
