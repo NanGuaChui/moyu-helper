@@ -6,7 +6,7 @@ import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
-import { analytics, getResourceDetail, debounce, sleep } from '@/utils';
+import { analytics, getResourceDetail, getTAllGameResource, sleep } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
 import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
@@ -38,7 +38,7 @@ function isMonsterEssence(materialId: string): boolean {
   return materialId.startsWith('(monster_essence_lv');
 }
 
-function getTagResources(tagStr: string): string[] {
+async function getTagResources(tagStr: string): Promise<string[]> {
   const cached = sessionStorage.getItem(`alchemy_tag_${tagStr}`);
   if (cached) return JSON.parse(cached);
 
@@ -46,8 +46,7 @@ function getTagResources(tagStr: string): string[] {
   if (!match) return [];
 
   const tags = match[1].split(',').map((t) => t.trim());
-  const resources = (window as any).tAllGameResource;
-  if (!resources) return [];
+  const resources = await getTAllGameResource();
 
   const result = Object.keys(resources).filter((key) => {
     const alchemyTag = resources[key]?.alchemyTag;
@@ -187,7 +186,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
 
       for (const materialId of Object.keys(currentRecipe.inputs)) {
         if (isTagResource(materialId)) {
-          const resources = getTagResources(materialId);
+          const resources = await getTagResources(materialId);
           const opts = resources
             .map((id) => ({
               id,
@@ -262,8 +261,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       }
       setMaterialPreview(preview);
     };
-    const debouncedUpdate = debounce(updatePreview, 200);
-    debouncedUpdate();
+    updatePreview();
   }, [selectedMaterial, tagSelections, times, multiplier, recipeData]);
 
   useEffect(() => {
@@ -276,8 +274,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       setMaxTimes(maxT);
       setTimes(maxT);
     };
-    const debouncedUpdate = debounce(updateMaxValues, 300);
-    if (recipeData) debouncedUpdate();
+    if (recipeData) updateMaxValues();
   }, [selectedMaterial, tagSelections, recipeData]);
 
   useEffect(() => {
@@ -286,8 +283,7 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       setMaxTimes(maxT);
       setTimes(maxT);
     };
-    const debouncedUpdate = debounce(updateMaxTimes, 200);
-    if (recipeData) debouncedUpdate();
+    if (recipeData) updateMaxTimes();
   }, [multiplier]);
 
   const handleSubmit = async () => {

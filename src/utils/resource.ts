@@ -9,6 +9,24 @@ const keyCache = new Map<string, string>();
 const detailCache = new Map<string, any>();
 
 /**
+ * 异步获取 tAllGameResource 对象
+ * 轮询直到对象初始化完成
+ */
+export async function getTAllGameResource(): Promise<GameResource> {
+  return new Promise((resolve) => {
+    const check = () => {
+      const resources = unsafeWindow.tAllGameResource;
+      if (resources && Object.keys(resources).length > 0) {
+        resolve(resources);
+      } else {
+        setTimeout(check, 500);
+      }
+    };
+    check();
+  });
+}
+
+/**
  * 通过资源名称获取资源 key
  */
 export function getResourceKey(name: string): string | undefined {

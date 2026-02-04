@@ -52,7 +52,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
       setSettings(Object.fromEntries(loadedSettings));
 
       if (resourceMonitor) {
-        setResourceCategories(resourceMonitor.getMonitoredResourcesByCategory());
+        setResourceCategories(await resourceMonitor.getMonitoredResourcesByCategory());
       }
     };
 
