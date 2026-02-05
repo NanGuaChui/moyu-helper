@@ -103,6 +103,7 @@ class DataCacheManager {
     ws.on('tavern:getMyExperts:success', (data) => {
       this.cache.tavern = data.payload.data;
       this.notifyDataReady('tavern');
+      eventBus.emit('tavernUpdated', this.cache.tavern);
     });
   }
 

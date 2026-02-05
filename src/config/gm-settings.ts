@@ -78,13 +78,14 @@ export const appConfig = {
   BATTLE_GUARD_ENABLED: createGMConfigSetting('battle_guard_enabled', false),
   QUALITY_TOOLBAR_ENABLED: createGMConfigSetting('quality_toolbar_enabled', false),
   TAVERN_EXPERT_ENABLED: createGMConfigSetting('tavern_expert_enabled', false),
+
+  // 酒馆自动续约配置
+  TAVERN_AUTO_RENEW_EXPERTS: createGMConfigSetting<string[]>('tavern_auto_renew_experts', []),
+  TAVERN_AUTO_RENEW_HOURS: createGMConfigSetting('tavern_auto_renew_hours', 24),
   CRAFT_PANEL_ENABLED: createGMConfigSetting('craft_panel_enabled', false),
   SKILL_ALLOCATION_ENABLED: createGMConfigSetting('skill_allocation_enabled', false),
   QUICK_ALCHEMY_ENABLED: createGMConfigSetting('quick_alchemy_enabled', false),
   QUICK_ACTIONS_ENABLED: createGMConfigSetting('quick_actions_enabled', false),
-
-  // 浮动菜单酒馆快捷配置
-  FLOATING_MENU_TAVERN_EXPERTS: createGMConfigSetting<string[]>('floating_menu_tavern_experts', ['enhanceExpert']),
 
   // 技能分配配置
   SKILL_ALLOCATION_SPECIALTY: createGMConfigSetting('skill_allocation_specialty', 'knowledge'),

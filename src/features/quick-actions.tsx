@@ -7,7 +7,7 @@ import { useState } from 'preact/hooks';
 import { ws, toast, dataCache } from '@/core';
 import { logger } from '@/core/logger';
 import { Modal, Select, Button } from '@/ui/components';
-import { analytics, sleep } from '@/utils';
+import { sleep } from '@/utils';
 
 interface MessageStep {
   type: 'auto' | 'select';
@@ -147,13 +147,11 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       }
       logger.success(`[快捷功能] ${config.label} 执行成功`);
       toast.success(`${config.label} 执行成功`);
-      analytics.track('快捷功能', config.label, '成功');
       onClose();
     } catch (error) {
       logger.error(`[快捷功能] ${config.label} 执行失败`);
       logger.error(JSON.stringify(error, null, 4));
       toast.error(`${config.label} 执行失败`);
-      analytics.track('快捷功能', config.label, '失败');
     } finally {
       setLoading(null);
       toast.hideProgress('quick-actions');
@@ -227,7 +225,6 @@ class QuickActions {
 
     this.isOpen = true;
     this.render();
-    analytics.track('快捷功能', 'open_modal');
   }
 
   private closeModal = (): void => {

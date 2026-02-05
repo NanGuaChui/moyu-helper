@@ -9,7 +9,7 @@ import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
 import { logger, toast, ws, dataCache, eventBus } from '@/core';
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
-import { analytics, debounce, throttle } from '@/utils';
+import { debounce, throttle } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
 interface CraftStep {
@@ -277,7 +277,6 @@ class CraftManager {
 
       toast.hideProgress('craft');
       toast.success(`已提交 ${optimized.length} 个制造任务`);
-      analytics.track('制造', 'player_craft', `${optimized.length}个任务`);
     } catch (error) {
       logger.error('制造失败', error);
       toast.error('制造失败');
@@ -356,7 +355,6 @@ class CraftManager {
       toast.hideProgress('craft');
       const taskCount = addedDefaultTask ? tasks.length + 1 : tasks.length;
       toast.success(`🐱 ${kittyName} 已提交 ${taskCount} 个任务`);
-      analytics.track('制造', 'kitty_craft', `${kittyName}-${taskCount}个任务`);
     } catch (error) {
       logger.error(`🐱 ${kittyName} 制造失败`, error);
       toast.error('制造失败');

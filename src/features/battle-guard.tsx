@@ -5,7 +5,6 @@
 
 import { ws, eventBus, EVENTS } from '@/core';
 import { logger } from '@/core/logger';
-import { analytics } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
 interface BattleGuardConfig {
@@ -72,7 +71,6 @@ class BattleGuard {
     try {
       await ws.emit('msgPref:battle:set', { enable: false });
       logger.success('[战斗防护] 战斗已禁用');
-      analytics.track('战斗防护', 'disable_battle', '成功');
       this.isMessageSent = true;
       this.retryCount = 0;
     } catch {

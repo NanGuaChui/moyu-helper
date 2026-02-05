@@ -90,7 +90,6 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
   const quickAlchemyEnabled = await appConfig.QUICK_ALCHEMY_ENABLED.get();
   const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
-  const floatingMenuTavernExperts = await appConfig.FLOATING_MENU_TAVERN_EXPERTS.get();
 
   // 技能加点
   if (skillAllocationEnabled) {
@@ -137,16 +136,13 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
-  // 动态添加酒馆专家按钮（根据配置显示多个酒馆专家）
-  if (tavernExpertEnabled && dataCache.has('tavern') && floatingMenuTavernExperts.length > 0) {
-    let baseOrder = 6;
-    for (const expertId of floatingMenuTavernExperts) {
-      buttons.push({
-        text: await tavernExpertManager.getButtonText(expertId),
-        onClick: () => tavernExpertManager.toggle(expertId),
-        order: baseOrder++,
-      });
-    }
+  // 酒馆管理按钮
+  if (tavernExpertEnabled) {
+    buttons.push({
+      text: '🏠 酒馆管理',
+      onClick: () => tavernExpertManager.openPanel(),
+      order: 6,
+    });
   }
 
   // 动态添加资源监控按钮（仅在启用时显示）
@@ -238,6 +234,9 @@ async function initFeatureModules(): Promise<void> {
     if (tavernExpertEnabled) {
       // 延迟显示酒馆状态，确保数据已加载
       void tavernExpertManager.showTavernStatus();
+
+      // 初始化酒馆自动续约
+      tavernExpertManager.initAutoRenew();
     }
   });
 
