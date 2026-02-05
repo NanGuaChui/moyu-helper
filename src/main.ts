@@ -237,9 +237,7 @@ async function initFeatureModules(): Promise<void> {
     const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
     if (tavernExpertEnabled) {
       // 延迟显示酒馆状态，确保数据已加载
-      setTimeout(() => {
-        void tavernExpertManager.showTavernStatus();
-      }, 2000);
+      void tavernExpertManager.showTavernStatus();
     }
   });
 
