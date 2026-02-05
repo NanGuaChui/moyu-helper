@@ -151,7 +151,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       onClose();
     } catch (error) {
       logger.error(`[快捷功能] ${config.label} 执行失败`);
-      console.error(JSON.stringify(error, null, 4));
+      logger.error(JSON.stringify(error, null, 4));
       toast.error(`${config.label} 执行失败`);
       analytics.track('快捷功能', config.label, '失败');
     } finally {
