@@ -414,17 +414,22 @@ class WebSocketManager {
 
   /**
    * 处理标准消息（42 前缀）
+   * 优化：避免重复 slice，使用更高效的事件名提取
    */
   private processStandardMessage(data: string): void {
     try {
       const jsonStart = data.indexOf('[');
       if (jsonStart === -1) return;
 
-      // 快速提取事件名（使用正则，避免完整 JSON.parse）
-      const eventMatch = data.slice(jsonStart).match(/^\["([^"]+)"/);
-      if (!eventMatch) return;
+      const jsonStr = data.slice(jsonStart);
 
-      const event = eventMatch[1];
+      // 快速提取事件名：查找第一个引号对
+      const firstQuote = jsonStr.indexOf('"');
+      if (firstQuote === -1) return;
+      const secondQuote = jsonStr.indexOf('"', firstQuote + 1);
+      if (secondQuote === -1) return;
+
+      const event = jsonStr.slice(firstQuote + 1, secondQuote);
 
       // 提前终止：没有监听器就不解析 payload
       if (!this.hasListeners(event)) {
@@ -432,7 +437,7 @@ class WebSocketManager {
       }
 
       // 有监听器才完整解析
-      const [, payloadStr] = JSON.parse(data.slice(jsonStart));
+      const [, payloadStr] = JSON.parse(jsonStr);
       const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
       this.dispatch({ event, payload });
     } catch {
@@ -442,17 +447,22 @@ class WebSocketManager {
 
   /**
    * 处理二进制消息头（451- 前缀）
+   * 优化：避免重复 slice，使用更高效的事件名提取
    */
   private processBinaryHeader(data: string): void {
     try {
       const jsonStart = data.indexOf('[');
       if (jsonStart === -1) return;
 
-      // 快速提取事件名（使用正则，避免完整 JSON.parse）
-      const eventMatch = data.slice(jsonStart).match(/^\["([^"]+)"/);
-      if (!eventMatch) return;
+      const jsonStr = data.slice(jsonStart);
 
-      const event = eventMatch[1];
+      // 快速提取事件名：查找第一个引号对
+      const firstQuote = jsonStr.indexOf('"');
+      if (firstQuote === -1) return;
+      const secondQuote = jsonStr.indexOf('"', firstQuote + 1);
+      if (secondQuote === -1) return;
+
+      const event = jsonStr.slice(firstQuote + 1, secondQuote);
 
       // 提前终止：没有监听器就不入队，后续二进制数据会被跳过
       if (!this.hasListeners(event)) {
@@ -460,7 +470,7 @@ class WebSocketManager {
       }
 
       // 有监听器才完整解析并入队
-      const [, obj] = JSON.parse(data.slice(jsonStart));
+      const [, obj] = JSON.parse(jsonStr);
       if (obj?._placeholder === true) {
         this.pendingBinary.push({ event, num: obj.num || 0 });
       }

@@ -3,6 +3,8 @@
  * 提供资源名称与 key 的转换功能
  */
 
+import { logger } from '@/core';
+
 type GameResource = Record<string, { name?: string; [key: string]: any }>;
 
 const keyCache = new Map<string, string>();
@@ -62,5 +64,5 @@ export function getResourceDetail(key: string): any {
 export function mountResourceUtils(): void {
   unsafeWindow.getResourceKey = getResourceKey;
   unsafeWindow.getResourceDetail = getResourceDetail;
-  console.info('🐟 资源工具函数已挂载: getResourceKey, getResourceDetail');
+  logger.info('资源工具函数已挂载: getResourceKey, getResourceDetail');
 }

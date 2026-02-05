@@ -9,7 +9,7 @@ import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, getTAllGameResource, sleep } from '@/utils';
+import { getTAllGameResource, sleep } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -197,9 +197,9 @@ class ResourceMonitor {
 
     const remainingItems = this.autoBuyEnabled
       ? problematicItems.filter((item) => {
-          const id = this.nameToIdCache?.get(item.name);
-          return item.type !== 'insufficient' || !id || !BASE_RESOURCES.includes(id as any);
-        })
+        const id = this.nameToIdCache?.get(item.name);
+        return item.type !== 'insufficient' || !id || !BASE_RESOURCES.includes(id as any);
+      })
       : problematicItems;
 
     const insufficientCount = remainingItems.filter((item) => item.type === 'insufficient').length;
@@ -288,9 +288,7 @@ class ResourceMonitor {
       }
     }
 
-    if (hasBought) {
-      analytics.track('资源监控', 'auto_buy', boughtItems.join(', '));
-    } else {
+    if (!hasBought) {
       toast.hideProgress(PROGRESS_ID);
     }
 

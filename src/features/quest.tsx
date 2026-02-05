@@ -5,7 +5,7 @@
 
 import { toast, ws, logger, eventBus, EVENTS } from '@/core';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, sleep } from '@/utils';
+import { sleep } from '@/utils';
 
 interface Quest {
   uuid: string;
@@ -64,23 +64,29 @@ class QuestManager {
   }
 
   private async fetchAndCompleteQuests(returnUpdatedList = true): Promise<Quest[]> {
-    const res = await ws.request('quest:list');
-    let quests = res.payload.data || [];
+    try {
+      const res = await ws.request('quest:list');
+      let quests = res.payload.data || [];
 
-    const completedCount = quests.filter((q) => q.status === 'DONE').length;
-    if (completedCount > 0) {
-      toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`, 'quest');
-      await sleep(1000);
-      await this.completeAll();
-      toast.hideProgress('quest');
-      await sleep(1000);
-      if (returnUpdatedList) {
-        const res = await ws.request('quest:list');
-        quests = res.payload.data || [];
+      const completedCount = quests.filter((q) => q.status === 'DONE').length;
+      if (completedCount > 0) {
+        toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`, 'quest');
+        await sleep(1000);
+        await this.completeAll();
+        toast.hideProgress('quest');
+        await sleep(1000);
+        if (returnUpdatedList) {
+          const res = await ws.request('quest:list');
+          quests = res.payload.data || [];
+        }
       }
-    }
 
-    return quests;
+      return quests;
+    } catch (error) {
+      logger.error('获取任务列表失败', error);
+      toast.error('获取任务列表超时，请稍后重试');
+      throw error;
+    }
   }
 
   async completeAll(): Promise<void> {
@@ -244,9 +250,6 @@ class QuestManager {
         toast.progress(`🎯 准备执行 ${uniqueQuests.length} 个任务...`, 'quest');
         await sleep(500);
         await this.handleQuestExecution(uniqueQuests);
-        if (uniqueQuests.length > 0) {
-          analytics.track('任务', 'refresh_quest', `${uniqueQuests.length}个`);
-        }
         return;
       }
 
@@ -273,9 +276,6 @@ class QuestManager {
       await sleep(500);
 
       await this.handleQuestExecution(uniqueQuests);
-      if (uniqueQuests.length > 0) {
-        analytics.track('任务', 'refresh_quest', `${uniqueQuests.length}个`);
-      }
     } catch (error) {
       logger.error('任务处理失败', error);
       toast.hideProgress('quest');

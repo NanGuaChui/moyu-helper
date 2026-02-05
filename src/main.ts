@@ -136,11 +136,11 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
-  // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
-  if (tavernExpertEnabled && dataCache.has('tavern')) {
+  // 酒馆管理按钮
+  if (tavernExpertEnabled) {
     buttons.push({
-      text: await tavernExpertManager.getButtonText(),
-      onClick: () => tavernExpertManager.toggle(),
+      text: '🏠 酒馆管理',
+      onClick: () => tavernExpertManager.openPanel(),
       order: 6,
     });
   }
@@ -224,10 +224,20 @@ async function initFeatureModules(): Promise<void> {
   app.settings.setResourceMonitor(app.resources);
   app.settings.setSatietyManager(app.satiety);
 
-  // 监听用户信息初始化事件，自动检查资源
-  ws.once('characterInitData', (data) => {
+  // 监听用户信息初始化事件，自动检查资源和显示酒馆状态
+  ws.once('characterInitData', async (data) => {
     logger.debug('用户信息已初始化', data.payload?.data);
     void app.resources.checkResources(false);
+
+    // 检查并显示酒馆状态
+    const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
+    if (tavernExpertEnabled) {
+      // 延迟显示酒馆状态，确保数据已加载
+      void tavernExpertManager.showTavernStatus();
+
+      // 初始化酒馆自动续约
+      tavernExpertManager.initAutoRenew();
+    }
   });
 
   logger.success('功能模块初始化完成');

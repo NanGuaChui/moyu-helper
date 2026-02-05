@@ -103,6 +103,7 @@ class DataCacheManager {
     ws.on('tavern:getMyExperts:success', (data) => {
       this.cache.tavern = data.payload.data;
       this.notifyDataReady('tavern');
+      eventBus.emit('tavernUpdated', this.cache.tavern);
     });
   }
 
@@ -187,9 +188,15 @@ class DataCacheManager {
     }
   }
 
-  /** 过滤库存（移除数量为0的物品） */
+  /** 过滤库存（移除数量为0的物品，原地修改减少对象创建） */
   private filterInventory(inventory: Inventory): Inventory {
-    return Object.fromEntries(Object.entries(inventory).filter(([, item]) => item.count > 0));
+    // 直接遍历并删除，避免创建中间数组
+    for (const key in inventory) {
+      if (inventory[key].count <= 0) {
+        delete inventory[key];
+      }
+    }
+    return inventory;
   }
 }
 

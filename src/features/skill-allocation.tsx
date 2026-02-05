@@ -10,7 +10,7 @@ import { useState, useEffect } from 'preact/hooks';
 import { appConfig } from '@/config/gm-settings';
 import type { SkillAllocationSummary, AllocationResult } from '@/types/features';
 import { ws, logger, toast } from '@/core';
-import { sleep, analytics } from '@/utils';
+import { sleep } from '@/utils';
 import { Modal, FormGroup, Select, Checkbox, Button } from '@/ui/components';
 
 // ==================== 常量 ====================
@@ -888,7 +888,6 @@ class SkillAllocationManager {
       }
 
       logger.success(`自动加点完成: 总点数=${totalPoints}, 剩余=${totalPoints - totalUsedPoints}`);
-      analytics.track('技能分配', 'auto_allocate', `${strategy}-${specialty}`);
 
       return { allocation: result.allocation, summary: result.summary };
     } catch (error) {
