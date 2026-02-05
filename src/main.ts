@@ -90,6 +90,7 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
   const quickAlchemyEnabled = await appConfig.QUICK_ALCHEMY_ENABLED.get();
   const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
+  const floatingMenuTavernExperts = await appConfig.FLOATING_MENU_TAVERN_EXPERTS.get();
 
   // 技能加点
   if (skillAllocationEnabled) {
@@ -136,13 +137,16 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
-  // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
-  if (tavernExpertEnabled && dataCache.has('tavern')) {
-    buttons.push({
-      text: await tavernExpertManager.getButtonText(),
-      onClick: () => tavernExpertManager.toggle(),
-      order: 6,
-    });
+  // 动态添加酒馆专家按钮（根据配置显示多个酒馆专家）
+  if (tavernExpertEnabled && dataCache.has('tavern') && floatingMenuTavernExperts.length > 0) {
+    let baseOrder = 6;
+    for (const expertId of floatingMenuTavernExperts) {
+      buttons.push({
+        text: await tavernExpertManager.getButtonText(expertId),
+        onClick: () => tavernExpertManager.toggle(expertId),
+        order: baseOrder++,
+      });
+    }
   }
 
   // 动态添加资源监控按钮（仅在启用时显示）
@@ -224,10 +228,19 @@ async function initFeatureModules(): Promise<void> {
   app.settings.setResourceMonitor(app.resources);
   app.settings.setSatietyManager(app.satiety);
 
-  // 监听用户信息初始化事件，自动检查资源
-  ws.once('characterInitData', (data) => {
+  // 监听用户信息初始化事件，自动检查资源和显示酒馆状态
+  ws.once('characterInitData', async (data) => {
     logger.debug('用户信息已初始化', data.payload?.data);
     void app.resources.checkResources(false);
+
+    // 检查并显示酒馆状态
+    const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
+    if (tavernExpertEnabled) {
+      // 延迟显示酒馆状态，确保数据已加载
+      setTimeout(() => {
+        void tavernExpertManager.showTavernStatus();
+      }, 2000);
+    }
   });
 
   logger.success('功能模块初始化完成');

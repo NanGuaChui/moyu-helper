@@ -12,6 +12,7 @@ import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import type { resourceMonitor } from '@/features/resource-monitor';
 import type { satietyManager } from '@/features/satiety-manager';
+import { TAVERN_EXPERT_TYPES } from '@/features/tavern-expert';
 import { type FoodType, QUEST_TASK_TYPES } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
 import { toast, eventBus, EVENTS } from '@/core';
@@ -150,13 +151,6 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
-            checked={settings[appConfig.TAVERN_EXPERT_ENABLED.key]}
-            onChange={(v) => updateSetting(appConfig.TAVERN_EXPERT_ENABLED.key, v)}
-            label="酒馆专家 - 自动刷新酒馆任务"
-          />
-        </Row>
-        <Row>
-          <Checkbox
             checked={settings[appConfig.QUICK_ALCHEMY_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.QUICK_ALCHEMY_ENABLED.key, v)}
             label="快速炼金 - 快速炼制战利品精华"
@@ -183,6 +177,36 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             label="缩小生活质量图标 - 优化界面显示"
           />
         </Row>
+      </Card>
+
+      <Card title="🏠 酒馆配置">
+        <Row>
+          <Checkbox
+            checked={settings[appConfig.TAVERN_EXPERT_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.TAVERN_EXPERT_ENABLED.key, v)}
+            label="启用酒馆控制"
+          />
+        </Row>
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '8px', marginBottom: '8px' }}>
+          选择要在浮动菜单中显示的酒馆专家快捷控制按钮:
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {TAVERN_EXPERT_TYPES.map((expert) => (
+            <Checkbox
+              key={expert.id}
+              checked={settings[appConfig.FLOATING_MENU_TAVERN_EXPERTS.key]?.includes(expert.id) || false}
+              onChange={(checked) => {
+                const currentExperts = settings[appConfig.FLOATING_MENU_TAVERN_EXPERTS.key] || [];
+                const newExperts = checked
+                  ? [...currentExperts, expert.id]
+                  : currentExperts.filter((id: string) => id !== expert.id);
+                updateSetting(appConfig.FLOATING_MENU_TAVERN_EXPERTS.key, newExperts);
+              }}
+              label={`${expert.icon} ${expert.name}`}
+              style={{ margin: 0 }}
+            />
+          ))}
+        </div>
       </Card>
 
       <Card title="📜 任务管理配置">

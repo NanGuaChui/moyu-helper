@@ -83,6 +83,9 @@ export const appConfig = {
   QUICK_ALCHEMY_ENABLED: createGMConfigSetting('quick_alchemy_enabled', false),
   QUICK_ACTIONS_ENABLED: createGMConfigSetting('quick_actions_enabled', false),
 
+  // 浮动菜单酒馆快捷配置
+  FLOATING_MENU_TAVERN_EXPERTS: createGMConfigSetting<string[]>('floating_menu_tavern_experts', ['enhanceExpert']),
+
   // 技能分配配置
   SKILL_ALLOCATION_SPECIALTY: createGMConfigSetting('skill_allocation_specialty', 'knowledge'),
   SKILL_ALLOCATION_STRATEGY: createGMConfigSetting('skill_allocation_strategy', '产出优先'),
