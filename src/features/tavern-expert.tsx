@@ -235,7 +235,7 @@ class TavernExpertManager {
       const activeNames = activeExperts
         .map((e) => {
           const type = this.getExpertType(e.type);
-          return type ? `${type.icon}${type.name}` : e.type;
+          return type ? `${type.icon}${type.shortName}` : e.type;
         })
         .join('、');
 
