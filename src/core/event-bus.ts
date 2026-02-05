@@ -3,6 +3,8 @@
  * 优化：添加监听器数量限制和自动清理机制
  */
 
+import { logger } from './logger';
+
 type EventHandler = (...args: any[]) => void;
 
 /** 每个事件最大监听器数量 */
@@ -20,7 +22,7 @@ class EventBus {
 
     // 防止监听器数量过多导致内存泄漏
     if (handlers.size >= MAX_LISTENERS_PER_EVENT) {
-      console.warn(
+      logger.warn(
         `[EventBus] 事件 "${event}" 监听器数量已达上限 (${MAX_LISTENERS_PER_EVENT})，请检查是否存在内存泄漏`,
       );
       return () => {};
@@ -49,7 +51,7 @@ class EventBus {
       try {
         handler(...args);
       } catch (error) {
-        console.error(`Event handler error [${event}]:`, error);
+        logger.error(`Event handler error [${event}]:`, error);
       }
     });
   }
