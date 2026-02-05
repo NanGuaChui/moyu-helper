@@ -1,19 +1,18 @@
 /**
- * 数据缓存管理器
+ * 数据缓存管理器 (简化版)
  *
- * 功能说明：
- * - 统一管理游戏数据缓存（用户信息、库存等）
+ * 功能：
+ * - 统一管理游戏数据缓存
  * - 监听 WebSocket 事件自动更新缓存
- * - 提供带等待队列的异步数据获取接口
- * - 支持超时处理和重试机制
+ * - 提供同步和异步数据获取接口
  */
 
 import { logger } from './logger';
 import { ws } from './websocket';
 import { eventBus } from './event-bus';
-import { debounce } from '@/utils';
-import type { UserInfo, Inventory, CacheEntry, TavernExpert } from '@/types/game-data';
+import type { UserInfo, Inventory, TavernExpert } from '@/types/game-data';
 
+/** 行动队列项 */
 interface ActionQueueItem {
   actionId: string;
   repeatCount: number;
@@ -21,223 +20,177 @@ interface ActionQueueItem {
   createTime: number;
 }
 
+/** 缓存键类型 */
 type CacheKey = 'userInfo' | 'inventory' | 'actionQueue' | 'tavern';
 
-interface CacheMap {
-  userInfo: UserInfo;
-  inventory: Inventory;
-  actionQueue: ActionQueueItem[];
-  tavern: TavernExpert[];
+/** 缓存数据结构 */
+interface CacheData {
+  userInfo: UserInfo | null;
+  inventory: Inventory | null;
+  actionQueue: ActionQueueItem[] | null;
+  tavern: TavernExpert[] | null;
+}
+
+/** 等待中的 Promise 解析器 */
+interface PendingResolver<T = unknown> {
+  resolve: (data: T) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
 }
 
 const DEFAULT_TIMEOUT = 10000;
-const INVENTORY_TIMEOUT = 30000;
-const RETRYABLE_KEYS: CacheKey[] = ['inventory'];
 
 /**
- * 数据缓存管理器类
+ * 数据缓存管理器
  */
 class DataCacheManager {
-  private caches: {
-    [K in CacheKey]: CacheEntry<CacheMap[K]>;
+  private cache: CacheData = {
+    userInfo: null,
+    inventory: null,
+    actionQueue: null,
+    tavern: null,
   };
 
-  private isInitialized = false;
+  /** 等待中的 Promise 解析器队列 */
+  private pendingResolvers = new Map<CacheKey, PendingResolver[]>();
 
-  constructor() {
-    this.caches = {
-      userInfo: {
-        data: null,
-        loading: false,
-        pendingRequests: [],
-      },
-      inventory: {
-        data: null,
-        loading: false,
-        pendingRequests: [],
-      },
-      actionQueue: {
-        data: null,
-        loading: false,
-        pendingRequests: [],
-      },
-      tavern: {
-        data: null,
-        loading: false,
-        pendingRequests: [],
-      },
-    };
-  }
+  private initialized = false;
 
-  /**
-   * 初始化数据缓存管理器
-   * 注册 WebSocket 事件监听
-   */
+  /** 初始化缓存管理器 */
   init(): void {
-    if (this.isInitialized) {
-      logger.warn('数据缓存管理器已初始化，跳过重复初始化');
+    if (this.initialized) {
+      logger.warn('数据缓存管理器已初始化');
       return;
     }
 
-    this.registerEventListeners();
-    this.isInitialized = true;
+    this.setupListeners();
+    this.initialized = true;
     logger.success('数据缓存管理器初始化完成');
   }
 
-  /**
-   * 注册 WebSocket 事件监听器
-   */
-  private registerEventListeners(): void {
+  /** 注册 WebSocket 事件监听 */
+  private setupListeners(): void {
+    // 初始化数据
     ws.once('characterInitData', (data) => {
       const { kittyInfo, quest, inventory, tavern } = data.payload.data.data;
-      this.updateCache('userInfo', { kittyInfo, quest });
-      if (inventory) this.updateCache('inventory', this.filterInventory(inventory));
-      if (tavern) this.updateCache('tavern', tavern);
+      this.cache.userInfo = { kittyInfo, quest };
+      this.notifyDataReady('userInfo');
+
+      if (inventory) {
+        this.cache.inventory = this.filterInventory(inventory);
+        this.notifyDataReady('inventory');
+      }
+      if (tavern) {
+        this.cache.tavern = tavern;
+        this.notifyDataReady('tavern');
+      }
     });
 
-    ws.on(
-      'dispatchInventoryInfo',
-      debounce((data) => {
-        this.updateCache('inventory', this.filterInventory(data.payload.data));
-      }, 300),
-    );
+    // 库存更新
+    ws.on('dispatchInventoryInfo', (data) => {
+      this.cache.inventory = this.filterInventory(data.payload.data);
+      this.notifyDataReady('inventory');
+    });
 
-    ws.on(
-      'dispatchTaskQueueToClient',
-      debounce((data) => {
-        const actionQueue = data.payload.data;
-        this.updateCache('actionQueue', actionQueue);
-        eventBus.emit('actionQueueUpdated', actionQueue);
-      }, 200),
-    );
+    // 任务队列更新
+    ws.on('dispatchTaskQueueToClient', (data) => {
+      this.cache.actionQueue = data.payload.data;
+      this.notifyDataReady('actionQueue');
+      eventBus.emit('actionQueueUpdated', this.cache.actionQueue);
+    });
 
-    ws.on(
-      'tavern:getMyExperts:success',
-      debounce((data) => {
-        this.updateCache('tavern', data.payload.data);
-      }, 500),
-    );
+    // 酒馆专家更新
+    ws.on('tavern:getMyExperts:success', (data) => {
+      this.cache.tavern = data.payload.data;
+      this.notifyDataReady('tavern');
+    });
   }
 
-  /**
-   * 同步获取缓存数据
-   */
-  get<K extends CacheKey>(key: K): CacheMap[K] | null {
-    return this.caches[key].data;
+  /** 检查缓存是否存在 */
+  has(key: CacheKey): boolean {
+    return this.cache[key] !== null;
   }
 
-  /**
-   * 获取指定物品的库存数量
-   */
+  /** 获取物品数量 */
   getItemCount(itemId: string): number {
-    return this.caches.inventory.data?.[itemId]?.count || 0;
+    return this.cache.inventory?.[itemId]?.count || 0;
   }
 
-  /**
-   * 异步获取指定物品的库存数量
-   */
-  async getItemCountAsync(itemId: string, timeout = INVENTORY_TIMEOUT): Promise<number> {
-    const inventory = await this.getAsync('inventory', timeout);
+  /** 异步获取缓存（等待数据加载） */
+  async getAsync<K extends CacheKey>(key: K, forceRefresh = false): Promise<NonNullable<CacheData[K]>> {
+    if (!forceRefresh && this.cache[key] !== null) {
+      return this.cache[key] as NonNullable<CacheData[K]>;
+    }
+
+    // 强制刷新时清空缓存
+    if (forceRefresh) {
+      this.cache[key] = null;
+    }
+
+    // 库存可主动请求
+    if (key === 'inventory') {
+      ws.emit('requestInventoryInfo');
+    }
+
+    return this.waitForData(key);
+  }
+
+  /** 异步获取物品数量 */
+  async getItemCountAsync(itemId: string): Promise<number> {
+    const inventory = await this.getAsync('inventory');
     return inventory[itemId]?.count || 0;
   }
 
-  /**
-   * 异步获取缓存数据
-   */
-  async getAsync<K extends CacheKey>(key: K, timeout = DEFAULT_TIMEOUT): Promise<CacheMap[K]> {
-    const cache = this.caches[key];
-
-    if (cache.data !== null) {
-      return cache.data;
-    }
-
-    if (cache.loading) {
-      return this.createPendingPromise(key, cache, timeout);
-    }
-
-    cache.loading = true;
-    this.requestData(key);
-
-    return this.createPendingPromise(key, cache, timeout);
-  }
-
-  /**
-   * 创建等待中的 Promise
-   */
-  private createPendingPromise<K extends CacheKey>(
-    key: K,
-    cache: CacheEntry<CacheMap[K]>,
-    timeout: number,
-  ): Promise<CacheMap[K]> {
+  /** 事件驱动等待数据 */
+  private waitForData<K extends CacheKey>(key: K): Promise<NonNullable<CacheData[K]>> {
     return new Promise((resolve, reject) => {
+      // 设置超时定时器
       const timer = setTimeout(() => {
-        this.handleTimeout(key, cache, timer);
+        this.removePendingResolver(key, resolver);
         reject(new Error(`获取 ${key} 数据超时`));
-      }, timeout);
+      }, DEFAULT_TIMEOUT);
 
-      cache.pendingRequests.push({ resolve, reject, timer });
+      const resolver: PendingResolver = {
+        resolve: resolve as (data: unknown) => void,
+        reject,
+        timer,
+      };
+
+      // 添加到等待队列
+      if (!this.pendingResolvers.has(key)) {
+        this.pendingResolvers.set(key, []);
+      }
+      this.pendingResolvers.get(key)!.push(resolver);
     });
   }
 
-  /**
-   * 处理超时
-   */
-  private handleTimeout<K extends CacheKey>(key: K, cache: CacheEntry<CacheMap[K]>, timer: NodeJS.Timeout): void {
-    const index = cache.pendingRequests.findIndex((req) => req.timer === timer);
-    if (index !== -1) {
-      cache.pendingRequests.splice(index, 1);
-    }
-
-    const canRetry = RETRYABLE_KEYS.includes(key);
-    if (canRetry) {
-      cache.loading = false;
-      logger.error(`获取 ${key} 数据超时，已重置加载状态，可重试`);
-    } else {
-      logger.error(`获取 ${key} 数据超时，该数据由系统自动触发，无法重试`);
+  /** 数据到达时通知所有等待者 */
+  private notifyDataReady(key: CacheKey): void {
+    const resolvers = this.pendingResolvers.get(key);
+    if (resolvers?.length) {
+      resolvers.forEach(({ resolve, timer }) => {
+        clearTimeout(timer);
+        resolve(this.cache[key]);
+      });
+      this.pendingResolvers.delete(key);
     }
   }
 
-  /**
-   * 请求数据
-   */
-  private requestData(key: CacheKey): void {
-    if (key === 'inventory') {
-      ws.send('requestInventoryInfo');
-      logger.info('已发送库存数据请求');
+  /** 移除特定的 resolver */
+  private removePendingResolver(key: CacheKey, resolver: PendingResolver): void {
+    const resolvers = this.pendingResolvers.get(key);
+    if (resolvers) {
+      const index = resolvers.indexOf(resolver);
+      if (index > -1) {
+        resolvers.splice(index, 1);
+      }
     }
   }
 
-  /**
-   * 更新缓存数据
-   */
-  private updateCache<K extends CacheKey>(key: K, data: CacheMap[K]): void {
-    const cache = this.caches[key];
-    cache.data = data;
-    cache.loading = false;
-
-    logger.debug(`${key} 缓存已更新，处理 ${cache.pendingRequests.length} 个待处理请求`);
-
-    this.resolvePendingRequests(cache, data);
-  }
-
-  /**
-   * 处理所有待处理的请求
-   */
-  private resolvePendingRequests<T>(cache: CacheEntry<T>, data: T): void {
-    const requests = cache.pendingRequests.splice(0);
-    requests.forEach((request) => {
-      clearTimeout(request.timer);
-      request.resolve(data);
-    });
-  }
-
-  /**
-   * 过滤库存数据，去掉 count 为 0 的物品以减小缓存大小
-   */
+  /** 过滤库存（移除数量为0的物品） */
   private filterInventory(inventory: Inventory): Inventory {
     return Object.fromEntries(Object.entries(inventory).filter(([, item]) => item.count > 0));
   }
 }
 
-// 导出单例实例
 export const dataCache = new DataCacheManager();

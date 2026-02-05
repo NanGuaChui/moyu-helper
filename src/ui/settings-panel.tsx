@@ -52,7 +52,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
       setSettings(Object.fromEntries(loadedSettings));
 
       if (resourceMonitor) {
-        setResourceCategories(resourceMonitor.getMonitoredResourcesByCategory());
+        setResourceCategories(await resourceMonitor.getMonitoredResourcesByCategory());
       }
     };
 
@@ -90,6 +90,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
   const handleSave = async () => {
     await Promise.all(
       Object.values(appConfig).map((setting) => {
+        if (setting.key === appConfig.MONITORED_RESOURCES.key) return Promise.resolve();
         const value = settings[setting.key];
         const isEqual = JSON.stringify(value) === JSON.stringify(setting.defaultValue);
         return isEqual ? GM.deleteValue(setting.key) : setting.set(value as never);
@@ -290,16 +291,6 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
       </Card>
 
       <Card title="🎯 任务队列配置">
-        <Row label="批次大小">
-          <Input
-            type="number"
-            value={settings[appConfig.QUEST_BATCH_SIZE.key]}
-            onChange={(v) => updateSetting(appConfig.QUEST_BATCH_SIZE.key, parseInt(v) || 1)}
-            min={1}
-            max={100}
-            step={1}
-          />
-        </Row>
         <Row label="任务间隔(ms)">
           <Input
             type="number"
@@ -308,16 +299,6 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             min={100}
             max={10000}
             step={100}
-          />
-        </Row>
-        <Row label="批次间隔(ms)">
-          <Input
-            type="number"
-            value={settings[appConfig.BATCH_DELAY.key]}
-            onChange={(v) => updateSetting(appConfig.BATCH_DELAY.key, parseInt(v) || 1000)}
-            min={1000}
-            max={60000}
-            step={1000}
           />
         </Row>
       </Card>

@@ -9,12 +9,12 @@ const TOAST_STYLES = `
 .mh-toast-close{width:20px;height:20px;border:none;background:0 0;cursor:pointer;font-size:18px;color:#999;padding:0;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:color .15s,background .15s,transform .15s}
 .mh-toast-close:hover{color:#333;background:rgba(0,0,0,.05);border-radius:50%;transform:scale(1.1)}
 .mh-toast-close:active{transform:scale(.95)}
-.mh-toast-progress{position:absolute;bottom:0;left:0;right:0;height:3px;background:currentColor;opacity:.8;width:100%;transition:width linear}
-.mh-toast.info{border:1px solid #3498db}.mh-toast.info .mh-toast-progress{color:#3498db}
-.mh-toast.success{border:1px solid #4caf50}.mh-toast.success .mh-toast-progress{color:#4caf50}
-.mh-toast.warning{border:1px solid #ff9800}.mh-toast.warning .mh-toast-progress{color:#ff9800}
-.mh-toast.error{border:1px solid #f44336}.mh-toast.error .mh-toast-progress{color:#f44336}
-.mh-toast-confirm{border:1px solid #3498db}
+.mh-toast-progress{position:absolute;bottom:0;left:4px;right:0;height:3px;background:currentColor;opacity:.3;width:100%;transition:width linear;border-radius:0 0 8px 0}
+.mh-toast.info{border-left:4px solid #3498db}.mh-toast.info .mh-toast-progress{color:#3498db}
+.mh-toast.success{border-left:4px solid #4caf50}.mh-toast.success .mh-toast-progress{color:#4caf50}
+.mh-toast.warning{border-left:4px solid #ff9800}.mh-toast.warning .mh-toast-progress{color:#ff9800}
+.mh-toast.error{border-left:4px solid #f44336}.mh-toast.error .mh-toast-progress{color:#f44336}
+.mh-toast-confirm{border-left:4px solid #3498db}
 .mh-toast-buttons{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}
 .mh-toast-btn{padding:6px 16px;border:none;border-radius:4px;cursor:pointer;font-size:14px;transition:all .2s;font-weight:500}
 .mh-toast-btn:hover{opacity:.85;transform:translateY(-1px)}
@@ -107,15 +107,15 @@ function ProgressToastComponent({
   );
 }
 
-
-
 type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+const DEFAULT_PROGRESS_ID = '__default__';
 
 class Toast {
   private container: HTMLDivElement | null = null;
   private toastCount = 0;
   private readonly MAX_TOASTS = 5;
-  private currentProgressToast: HTMLElement | null = null;
+  private progressToasts: Map<string, HTMLElement> = new Map();
 
   private getContainer(): HTMLDivElement {
     if (!this.container) {
@@ -163,12 +163,13 @@ class Toast {
   warning = (msg: string, timeout = 3000) => this.show('warning', msg, timeout);
   error = (msg: string, timeout = 3500) => this.show('error', msg, timeout);
 
-  progress(msg: string): void {
+  progress(msg: string, id: string = DEFAULT_PROGRESS_ID): void {
     const container = this.getContainer();
-    
-    // 如果已存在 progress，直接更新
-    if (this.currentProgressToast) {
-      render(<ProgressToastComponent message={msg} showClose={false} />, this.currentProgressToast);
+    const existingToast = this.progressToasts.get(id);
+
+    // 如果已存在该 ID 的 progress，直接更新
+    if (existingToast) {
+      render(<ProgressToastComponent message={msg} showClose={false} />, existingToast);
       return;
     }
 
@@ -176,7 +177,7 @@ class Toast {
     render(<ProgressToastComponent message={msg} showClose={false} />, toast);
     container.appendChild(toast);
     this.toastCount++;
-    this.currentProgressToast = toast;
+    this.progressToasts.set(id, toast);
   }
 
   confirm(msg: string, onConfirm?: () => void, timeout?: number): void {
@@ -197,10 +198,11 @@ class Toast {
     this.toastCount++;
   }
 
-  hideProgress(): void {
-    if (this.currentProgressToast) {
-      this.remove(this.currentProgressToast);
-      this.currentProgressToast = null;
+  hideProgress(id: string = DEFAULT_PROGRESS_ID): void {
+    const toast = this.progressToasts.get(id);
+    if (toast) {
+      this.remove(toast);
+      this.progressToasts.delete(id);
     }
   }
 }

@@ -73,7 +73,7 @@ class BattleGuard {
     logger.info(`[战斗防护] 尝试禁用战斗 (第${this.retryCount}次)`);
 
     try {
-      await ws.send('msgPref:battle:set', { enable: false });
+      await ws.emit('msgPref:battle:set', { enable: false });
       logger.success('[战斗防护] 战斗已禁用');
       analytics.track('战斗防护', 'disable_battle', '成功');
       this.isMessageSent = true;

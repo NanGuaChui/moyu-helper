@@ -22,13 +22,13 @@ class TavernExpertManager {
       const enhanceExpert = tavern.find((expert) => expert.type === 'enhanceExpert');
 
       if (!enhanceExpert) {
-        await ws.sendAndListen('tavern:hireExpert', { catId: 'enhanceExpert', hours: 1 });
+        await ws.request('tavern:hireExpert', { catId: 'enhanceExpert', hours: 1 });
         toast.success('✅ 强化专家已启用');
       } else if (enhanceExpert.state === 'WORKING') {
-        await ws.sendAndListen('tavern:pause', { catId: 'enhanceExpert' });
+        await ws.request('tavern:pause', { catId: 'enhanceExpert' });
         toast.success('✅ 强化专家已暂停');
       } else {
-        const res = await ws.sendAndListen('tavern:resume', { catId: 'enhanceExpert' });
+        const res = await ws.request('tavern:resume', { catId: 'enhanceExpert' });
 
         // 检查结束时间
         if (res?.payload?.data?.record?.end_date) {
@@ -39,17 +39,17 @@ class TavernExpertManager {
 
           if (remainingHours < 1) {
             const remainingMinutes = Math.floor(remainingMs / 60000);
-            await ws.sendAndListen('tavern:renewExpert', { catId: 'enhanceExpert', hours: 1 });
+            await ws.request('tavern:renewExpert', { catId: 'enhanceExpert', hours: 1 });
             toast.success(`✅ 强化专家已恢复，剩余${remainingMinutes}分钟，已自动续约1小时`);
           } else {
             toast.success('✅ 强化专家已恢复');
           }
+        } else {
+          toast.success('✅ 强化专家已恢复');
         }
-
-        toast.success('✅ 强化专家已恢复');
       }
       // 触发dataCache更新
-      ws.send('tavern:getMyExperts');
+      ws.emit('tavern:getMyExperts');
     } catch (error) {
       logger.error('切换强化专家状态失败', error);
       toast.error('操作失败，请稍后重试');
@@ -58,11 +58,11 @@ class TavernExpertManager {
     }
   }
 
-  getButtonText(): string {
+  async getButtonText(): Promise<string> {
     try {
-      const tavern: TavernExpert[] | null = dataCache.get('tavern');
-      if (!tavern) return '⚒️ 强化专家';
+      if (!dataCache.has('tavern')) return '⚒️ 强化专家';
 
+      const tavern = await dataCache.getAsync('tavern');
       const enhanceExpert = tavern.find((expert) => expert.type === 'enhanceExpert');
 
       if (!enhanceExpert) return '⚒️ 启用强化';

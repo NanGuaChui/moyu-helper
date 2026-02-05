@@ -6,14 +6,13 @@
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, debounce } from '@/utils';
+import { analytics } from '@/utils';
 
 class SatietyManager {
   private isInitialized = false;
   private isChecking = false;
   private enabled = false;
   private foodType: FoodType = 'berry';
-  private debouncedCheck = debounce(() => this.checkAndUseFood(), 1000);
 
   async init(): Promise<void> {
     if (this.isInitialized) return;
@@ -21,12 +20,8 @@ class SatietyManager {
     this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
     this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
 
-    dataCache.getAsync('inventory').then(() => {
-      this.debouncedCheck();
-    });
-
-    ws.on('dispatchInventoryInfo', () => {
-      this.debouncedCheck();
+    ws.once('dispatchInventoryInfo', () => {
+      setTimeout(() => this.checkAndUseFood(), 1000);
     });
 
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
@@ -51,7 +46,7 @@ class SatietyManager {
 
         while (remaining > 0) {
           const useAmount = Math.min(remaining, 100000);
-          await ws.sendAndListen('effectAction:useItem', { itemId: this.foodType, multiple: useAmount });
+          await ws.request('effectAction:useItem', { itemId: this.foodType, multiple: useAmount });
           totalUsed += useAmount;
           remaining -= useAmount;
         }
@@ -63,6 +58,7 @@ class SatietyManager {
       }
     } catch (error) {
       logger.error('检查饱食度失败', error);
+      toast.error('检查饱食度失败');
     } finally {
       this.isChecking = false;
     }

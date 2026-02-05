@@ -9,7 +9,7 @@ import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, debounce, sleep } from '@/utils';
+import { analytics, getTAllGameResource, sleep } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -89,13 +89,13 @@ export function createResourceAlertHTML(
 // ==================== 资源监控器 ====================
 
 const BASE_RESOURCES = ['berry', 'fish', 'wood', 'stone', 'coal'] as const;
+const PROGRESS_ID = 'resource-monitor';
 
 class ResourceMonitor {
   private resources: Record<string, ResourceConfig>;
   private enabled = false;
   private autoBuyEnabled = false;
   private nameToIdCache: Map<string, string> | null = null;
-  private debouncedCheck = debounce((persistent: boolean) => this.performCheck(true, persistent), 500);
 
   constructor() {
     this.resources = this.flattenCategories(DEFAULT_RESOURCES);
@@ -111,6 +111,7 @@ class ResourceMonitor {
       logger.success('资源监控器初始化完成');
     } catch (error) {
       logger.error('加载资源监控配置失败', error);
+      toast.error('资源监控初始化失败');
     }
   }
 
@@ -170,19 +171,16 @@ class ResourceMonitor {
     }
 
     try {
-      this.debouncedCheck(persistent);
+      await this.performCheck(true, persistent);
     } catch (error) {
+      toast.hideProgress(PROGRESS_ID);
       logger.error('获取库存数据失败', error);
       toast.error('获取库存数据失败，请稍后重试');
     }
   }
 
   private async performCheck(showAlert: boolean, persistent: boolean = true): Promise<void> {
-    const gameResources = unsafeWindow.tAllGameResource;
-    if (!gameResources) {
-      logger.warn('游戏资源数据未加载');
-      return;
-    }
+    const gameResources = await getTAllGameResource();
 
     this.buildNameToIdCache(gameResources);
 
@@ -194,6 +192,8 @@ class ResourceMonitor {
       await sleep(500);
       problematicItems = await this.findProblematicItems(gameResources);
     }
+
+    toast.hideProgress(PROGRESS_ID);
 
     const remainingItems = this.autoBuyEnabled
       ? problematicItems.filter((item) => {
@@ -218,21 +218,28 @@ class ResourceMonitor {
 
   private async findProblematicItems(gameResources: any): Promise<ResourceItem[]> {
     const items: ResourceItem[] = [];
-    const inventory = await dataCache.getAsync('inventory');
 
-    for (const [id, config] of Object.entries(this.resources)) {
-      if (config.threshold === 0) continue;
-      const count = inventory[id]?.count || 0;
-      const isProblematic = config.type === 'insufficient' ? count < config.threshold : count >= config.threshold;
+    try {
+      toast.progress('📦 正在获取库存数据...', PROGRESS_ID);
+      const inventory = await dataCache.getAsync('inventory', true);
 
-      if (isProblematic) {
-        items.push({
-          name: gameResources[id]?.name || id,
-          count,
-          threshold: config.threshold,
-          type: config.type,
-        });
+      for (const [id, config] of Object.entries(this.resources)) {
+        if (config.threshold === 0) continue;
+        const count = inventory[id]?.count || 0;
+        const isProblematic = config.type === 'insufficient' ? count < config.threshold : count >= config.threshold;
+
+        if (isProblematic) {
+          items.push({
+            name: gameResources[id]?.name || id,
+            count,
+            threshold: config.threshold,
+            type: config.type,
+          });
+        }
       }
+    } catch (error) {
+      toast.hideProgress(PROGRESS_ID);
+      throw error;
     }
 
     return items;
@@ -249,7 +256,10 @@ class ResourceMonitor {
   }
 
   private async autoBuyBaseResources(problematicItems: ResourceItem[]): Promise<boolean> {
-    if (!this.autoBuyEnabled || !this.nameToIdCache) return false;
+    if (!this.autoBuyEnabled || !this.nameToIdCache) {
+      toast.hideProgress(PROGRESS_ID);
+      return false;
+    }
 
     let hasBought = false;
     const boughtItems: string[] = [];
@@ -264,18 +274,24 @@ class ResourceMonitor {
       const needed = targetAmount - item.count;
       if (needed > 0) {
         try {
-          await ws.send('requestShopBuyResource', { id: resourceId, count: needed });
+          toast.progress(`🛍️ 正在购买: ${item.name} x${needed}`, PROGRESS_ID);
+          await ws.emit('requestShopBuyResource', { id: resourceId, count: needed });
           logger.info(`自动购买基础资源: ${item.name} x${needed} (目标: ${targetAmount})`);
           boughtItems.push(`${item.name}x${needed}`);
           hasBought = true;
         } catch (error) {
+          toast.hideProgress(PROGRESS_ID);
           logger.error(`购买 ${item.name} 失败`, error);
+          toast.warning(`购买 ${item.name} 失败`);
+          return false;
         }
       }
     }
 
     if (hasBought) {
       analytics.track('资源监控', 'auto_buy', boughtItems.join(', '));
+    } else {
+      toast.hideProgress(PROGRESS_ID);
     }
 
     return hasBought;
@@ -321,10 +337,10 @@ class ResourceMonitor {
     return { ...this.resources };
   }
 
-  getMonitoredResourcesWithNames(): Array<{ id: string; name: string; threshold: number; type: MonitorType }> {
-    const gameResources = unsafeWindow.tAllGameResource;
-    if (!gameResources) return [];
-
+  async getMonitoredResourcesWithNames(): Promise<
+    Array<{ id: string; name: string; threshold: number; type: MonitorType }>
+  > {
+    const gameResources = await getTAllGameResource();
     return Object.entries(this.resources).map(([id, config]) => ({
       id,
       name: gameResources[id]?.name || id,
@@ -333,10 +349,9 @@ class ResourceMonitor {
     }));
   }
 
-  getMonitoredResourcesByCategory(): ResourceCategory[] {
-    const gameResources = unsafeWindow.tAllGameResource;
+  async getMonitoredResourcesByCategory(): Promise<ResourceCategory[]> {
+    const gameResources = await getTAllGameResource();
     if (!gameResources) return [];
-
     return DEFAULT_RESOURCES.map((category) => ({
       name: category.name,
       items: Object.fromEntries(
@@ -347,7 +362,13 @@ class ResourceMonitor {
 
   async setMonitoredResources(resources: Record<string, ResourceConfig>): Promise<void> {
     this.resources = resources;
-    await appConfig.MONITORED_RESOURCES.set(JSON.stringify(resources));
+    const defaults = this.flattenCategories(DEFAULT_RESOURCES);
+    const isEqual = JSON.stringify(resources) === JSON.stringify(defaults);
+    if (isEqual) {
+      await GM.deleteValue(appConfig.MONITORED_RESOURCES.key);
+    } else {
+      await appConfig.MONITORED_RESOURCES.set(JSON.stringify(resources));
+    }
     logger.info('资源配置已更新');
   }
 

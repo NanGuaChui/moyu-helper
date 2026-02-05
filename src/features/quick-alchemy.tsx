@@ -1,55 +1,50 @@
-/**
- * 快速炼金功能模块
- */
-
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache } from '@/core';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
-import { analytics, getResourceDetail, debounce, sleep } from '@/utils';
+import { analytics, getResourceDetail, getTAllGameResource } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
-import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, TAG_RESOURCE_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
-
-interface RecipeInput {
-  [key: string]: { count: number };
-}
-
-interface MaterialPreview {
-  name: string;
-  required: number;
-  available: number;
-}
-
-interface Inventory {
-  [key: string]: { count: number };
-}
+import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
 const MAX_LIMIT = 1000;
-const nameCache = new Map<string, string>();
+const resourceNameCache = new Map<string, string>();
 
-function getCachedResourceName(id: string): string {
-  if (!nameCache.has(id)) {
-    nameCache.set(id, getResourceDetail(id)?.name || id);
+const getResourceName = (id: string) => {
+  if (!resourceNameCache.has(id)) {
+    resourceNameCache.set(id, getResourceDetail(id)?.name || id);
   }
-  return nameCache.get(id)!;
-}
+  return resourceNameCache.get(id)!;
+};
 
-function isMonsterEssence(materialId: string): boolean {
-  return materialId.startsWith('(monster_essence_lv');
-}
+const isEssence = (id: string) => id.startsWith('(monster_essence_lv');
+const isTag = (id: string) => id.startsWith('(') && id.endsWith(')');
 
-function isTagResource(materialId: string): boolean {
-  return !!TAG_RESOURCE_MAP[materialId];
-}
+const fetchTagResources = async (tag: string): Promise<string[]> => {
+  const cacheKey = `alchemy_tag_${tag}`;
+  const cached = sessionStorage.getItem(cacheKey);
+  if (cached) return JSON.parse(cached);
 
-class AlchemyManager {
-  async quickAlchemy(recipeId: string, inputs: RecipeInput, times: number): Promise<void> {
+  const match = tag.match(/^\(([^)]+)\)$/);
+  if (!match) return [];
+
+  const tags = match[1].split(',').map((t) => t.trim());
+  const allResources = await getTAllGameResource();
+  const filtered = Object.keys(allResources).filter((key) => {
+    const alchemyTag = allResources[key]?.alchemyTag;
+    return Array.isArray(alchemyTag) && tags.every((t) => alchemyTag.includes(t));
+  });
+
+  sessionStorage.setItem(cacheKey, JSON.stringify(filtered));
+  return filtered;
+};
+
+class AlchemyService {
+  async submit(recipeId: string, inputs: Record<string, { count: number }>, times: number) {
     try {
-      const alchemyData = { input: inputs, times };
-      toast.info(`正在提交炼金任务 ${getCachedResourceName(recipeId)} x${times}...`);
-      await ws.sendAndListen('alchemy:auto:create', alchemyData, 30000);
-      toast.success(`✅ 炼金任务提交成功！`);
-      analytics.track('炼金', 'quick_alchemy_success', `${getCachedResourceName(recipeId)} x${times}`);
+      toast.info(`正在提交炼金任务 ${getResourceName(recipeId)} x${times}...`);
+      await ws.request('alchemy:auto:create', { input: inputs, times }, 30000);
+      toast.success('✅ 炼金任务提交成功！');
+      analytics.track('炼金', 'quick_alchemy_success', `${getResourceName(recipeId)} x${times}`);
     } catch (error: any) {
       logger.error('炼金失败', error);
       toast.error(error?.payload?.data?.msg || '炼金任务提交失败');
@@ -57,252 +52,242 @@ class AlchemyManager {
   }
 }
 
-export const alchemyManager = new AlchemyManager();
+export const alchemyManager = new AlchemyService();
 
-interface AlchemyPanelProps {
-  onClose: () => void;
-}
-
-function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
-  const [selectedRecipe, setSelectedRecipe] = useState('');
-  const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
-  const [selectedMaterial, setSelectedMaterial] = useState('');
+const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
+  const [recipe, setRecipe] = useState('');
+  const [recipeIdx, setRecipeIdx] = useState(0);
+  const [recipeData, setRecipeData] = useState<AlchemyItem | null>(null);
+  const [essence, setEssence] = useState('');
+  const [essenceOpts, setEssenceOpts] = useState<{ value: string; label: string }[]>([]);
+  const [tagMap, setTagMap] = useState<Record<string, string>>({});
+  const [tagOptsMap, setTagOptsMap] = useState<Record<string, { value: string; label: string }[]>>({});
+  const [mult, setMult] = useState(1);
+  const [maxMult, setMaxMult] = useState(MAX_LIMIT);
   const [times, setTimes] = useState(1);
   const [maxTimes, setMaxTimes] = useState(MAX_LIMIT);
-  const [multiplier, setMultiplier] = useState(1);
-  const [maxMultiplier, setMaxMultiplier] = useState(MAX_LIMIT);
-  const [groupedOptions, setGroupedOptions] = useState<
-    Array<{ label: string; options: Array<{ value: string; label: string }> }>
-  >([]);
-  const [materialOptions, setMaterialOptions] = useState<{ value: string; label: string }[]>([]);
-  const [tagSelections, setTagSelections] = useState<Record<string, string>>({});
-  const [tagOptions, setTagOptions] = useState<Record<string, { value: string; label: string }[]>>({});
-  const [materialPreview, setMaterialPreview] = useState<MaterialPreview[] | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [recipeData, setRecipeData] = useState<AlchemyItem | null>(null);
-
-  const findRecipeItem = (recipeId: string): AlchemyItem | null => {
-    for (const category of ALCHEMY_RECIPES) {
-      const item = category.items.find((i) => i.value === recipeId);
-      if (item) return item;
-    }
-    return null;
-  };
-
-  const getMaterialAvailable = (materialId: string, inventory: Inventory): number => {
-    if (isTagResource(materialId)) {
-      const selectedResource = tagSelections[materialId];
-      return selectedResource ? inventory[selectedResource]?.count || 0 : 0;
-    }
-    if (isMonsterEssence(materialId)) {
-      return selectedMaterial ? inventory[selectedMaterial]?.count || 0 : 0;
-    }
-    return inventory[materialId]?.count || 0;
-  };
-
-  const calculateMaxMultiplier = async (): Promise<number> => {
-    if (!recipeData) return 1;
-    const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-    const inventory = await dataCache.getAsync('inventory');
-    let maxMult = MAX_LIMIT;
-
-    for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-      const available = getMaterialAvailable(materialId, inventory);
-      maxMult = Math.min(maxMult, Math.floor(available / count), Math.floor(MAX_LIMIT / count));
-    }
-    return Math.max(1, maxMult);
-  };
-
-  const calculateMaxTimes = async (mult: number): Promise<number> => {
-    if (!recipeData) return MAX_LIMIT;
-    const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-    const inventory = await dataCache.getAsync('inventory');
-    let maxT = MAX_LIMIT;
-
-    for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-      const available = getMaterialAvailable(materialId, inventory);
-      maxT = Math.min(maxT, Math.floor(available / (count * mult)));
-    }
-    return Math.min(Math.max(1, maxT), MAX_LIMIT);
-  };
+  const [preview, setPreview] = useState<{ name: string; required: number; available: number }[] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [recipeOpts, setRecipeOpts] = useState<{ label: string; options: { value: string; label: string }[] }[]>([]);
 
   useEffect(() => {
-    const loadOptions = async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const options = ALCHEMY_RECIPES.map((category) => ({
-        label: category.label,
-        options: category.items.map((item) => ({
-          value: item.value,
-          label: `${item.label} (${inventory[item.value]?.count || 0})`,
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      setRecipeOpts(
+        ALCHEMY_RECIPES.map((cat) => ({
+          label: cat.label,
+          options: cat.items.map((item) => ({
+            value: item.value,
+            label: `${item.label} (${inv[item.value]?.count || 0})`,
+          })),
         })),
-      }));
-      setGroupedOptions(options);
-    };
-    loadOptions();
+      );
+    })();
   }, []);
 
   useEffect(() => {
-    const updateMaterials = async () => {
-      if (!selectedRecipe) {
-        setMaterialOptions([]);
-        setSelectedMaterial('');
-        setTagSelections({});
-        setTagOptions({});
-        setMaterialPreview(null);
-        setRecipeData(null);
-        return;
-      }
+    if (!recipe) {
+      setRecipeData(null);
+      setEssenceOpts([]);
+      setEssence('');
+      setTagMap({});
+      setTagOptsMap({});
+      setPreview(null);
+      return;
+    }
 
-      const inventory = await dataCache.getAsync('inventory');
-      const recipe = findRecipeItem(selectedRecipe);
-      setRecipeData(recipe);
+    (async () => {
+      const found = ALCHEMY_RECIPES.flatMap((c) => c.items).find((i) => i.value === recipe);
+      setRecipeData(found || null);
+      if (!found) return;
 
-      if (!recipe) return;
+      const inv = await dataCache.getAsync('inventory');
+      const curr = found.recipes[recipeIdx];
+      const newTagMap: Record<string, string> = {};
+      const newTagOpts: Record<string, { value: string; label: string }[]> = {};
+      let newEssence = '';
+      const newEssenceOpts: { value: string; label: string; count: number }[] = [];
 
-      const currentRecipe = recipe.recipes[selectedRecipeIndex];
-      const newTagSelections: Record<string, string> = {};
-      const newTagOptions: Record<string, { value: string; label: string }[]> = {};
-      let newSelectedMaterial = '';
-
-      for (const materialId of Object.keys(currentRecipe.inputs)) {
-        if (isTagResource(materialId)) {
-          const resources = TAG_RESOURCE_MAP[materialId];
-          const opts = resources
-            .map((id) => ({
-              id,
-              count: inventory[id]?.count || 0,
-              label: `${getCachedResourceName(id)} (${inventory[id]?.count || 0})`,
-            }))
+      for (const matId of Object.keys(curr.inputs)) {
+        if (isTag(matId)) {
+          const res = await fetchTagResources(matId);
+          const opts = res
+            .map((id) => ({ id, count: inv[id]?.count || 0, label: `${getResourceName(id)} (${inv[id]?.count || 0})` }))
             .sort((a, b) => b.count - a.count);
-          newTagOptions[materialId] = opts.map((o) => ({ value: o.id, label: o.label }));
-          newTagSelections[materialId] = opts[0]?.id || resources[0];
-        } else if (isMonsterEssence(materialId)) {
-          const level = ESSENCE_LEVEL_MAP[selectedRecipe];
-          if (level) {
-            const essenceKey = `monster_essence_lv${level}` as keyof typeof ESSENCE_CLASSIFICATION;
-            const materials = ESSENCE_CLASSIFICATION[essenceKey];
-            if (materials?.length > 0) {
-              const options = materials
-                .map((id) => ({
-                  value: id,
-                  label: `${getCachedResourceName(id)} (${inventory[id]?.count || 0})`,
-                  count: inventory[id]?.count || 0,
-                }))
+          newTagOpts[matId] = opts.map((o) => ({ value: o.id, label: o.label }));
+          newTagMap[matId] = opts[0]?.id || res[0];
+        } else if (isEssence(matId)) {
+          const lvl = ESSENCE_LEVEL_MAP[recipe];
+          if (lvl) {
+            const key = `monster_essence_lv${lvl}` as keyof typeof ESSENCE_CLASSIFICATION;
+            const mats = ESSENCE_CLASSIFICATION[key];
+            if (mats?.length) {
+              const opts = mats
+                .map((id) => ({ value: id, label: `${getResourceName(id)} (${inv[id]?.count || 0})`, count: inv[id]?.count || 0 }))
                 .sort((a, b) => b.count - a.count);
-              setMaterialOptions(options);
-              newSelectedMaterial = options[0]?.value || '';
-              setSelectedMaterial(newSelectedMaterial);
+              newEssenceOpts.push(...opts);
+              newEssence = opts[0]?.value || '';
             }
           }
         }
       }
-      setTagSelections(newTagSelections);
-      setTagOptions(newTagOptions);
 
-      await sleep(0);
+      let calcMaxMult = MAX_LIMIT;
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
+      }
+      calcMaxMult = Math.max(1, calcMaxMult);
 
-      const maxMult = await calculateMaxMultiplier();
-      setMaxMultiplier(maxMult);
-      setMultiplier(maxMult);
+      let calcMaxTimes = MAX_LIMIT;
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxTimes = Math.min(calcMaxTimes, Math.floor(avail / (count * calcMaxMult)));
+      }
+      calcMaxTimes = Math.min(Math.max(1, calcMaxTimes), MAX_LIMIT);
 
-      const maxT = await calculateMaxTimes(maxMult);
-      setMaxTimes(maxT);
-      setTimes(maxT);
-    };
-    updateMaterials();
-  }, [selectedRecipe, selectedRecipeIndex]);
+      setEssenceOpts(newEssenceOpts);
+      setEssence(newEssence);
+      setTagMap(newTagMap);
+      setTagOptsMap(newTagOpts);
+      setMaxMult(calcMaxMult);
+      setMult(calcMaxMult);
+      setMaxTimes(calcMaxTimes);
+      setTimes(calcMaxTimes);
+    })();
+  }, [recipe, recipeIdx]);
 
   useEffect(() => {
-    const updatePreview = async () => {
-      if (!selectedRecipe || !recipeData) {
-        setMaterialPreview(null);
-        return;
-      }
+    if (!recipe || !recipeData) {
+      setPreview(null);
+      return;
+    }
 
-      const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-      const inventory = await dataCache.getAsync('inventory');
-      const preview: MaterialPreview[] = [];
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      const prev: { name: string; required: number; available: number }[] = [];
 
-      for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-        let resourceId = materialId;
-        if (isTagResource(materialId)) {
-          resourceId = tagSelections[materialId];
-          if (!resourceId) continue;
-        } else if (isMonsterEssence(materialId)) {
-          resourceId = selectedMaterial;
-          if (!resourceId) continue;
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let resId = matId;
+        if (isTag(matId)) {
+          resId = tagMap[matId];
+          if (!resId) continue;
+        } else if (isEssence(matId)) {
+          resId = essence;
+          if (!resId) continue;
         }
-
-        preview.push({
-          name: getCachedResourceName(resourceId),
-          required: count * multiplier * times,
-          available: inventory[resourceId]?.count || 0,
-        });
+        prev.push({ name: getResourceName(resId), required: count * mult * times, available: inv[resId]?.count || 0 });
       }
-      setMaterialPreview(preview);
-    };
-    const debouncedUpdate = debounce(updatePreview, 200);
-    debouncedUpdate();
-  }, [selectedMaterial, tagSelections, times, multiplier, recipeData]);
+      setPreview(prev);
+    })();
+  }, [essence, tagMap, times, mult, recipeData]);
 
   useEffect(() => {
-    const updateMaxValues = async () => {
-      const maxMult = await calculateMaxMultiplier();
-      setMaxMultiplier(maxMult);
-      setMultiplier(maxMult);
+    if (!recipeData) return;
 
-      const maxT = await calculateMaxTimes(maxMult);
-      setMaxTimes(maxT);
-      setTimes(maxT);
-    };
-    const debouncedUpdate = debounce(updateMaxValues, 300);
-    if (recipeData) debouncedUpdate();
-  }, [selectedMaterial, tagSelections, recipeData]);
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      let calcMaxMult = MAX_LIMIT;
+
+      for (const [matId, { count }] of Object.entries(curr.inputs)) {
+        let avail = 0;
+        if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+        else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+        else avail = inv[matId]?.count || 0;
+        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
+      }
+      calcMaxMult = Math.max(1, calcMaxMult);
+      setMaxMult(calcMaxMult);
+      if (mult > calcMaxMult) setMult(calcMaxMult);
+
+      const calcMaxTimes = Math.min(
+        Math.max(
+          1,
+          Math.min(
+            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
+              let avail = 0;
+              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+              else avail = inv[matId]?.count || 0;
+              return Math.floor(avail / (count * (mult > calcMaxMult ? calcMaxMult : mult)));
+            }),
+          ),
+        ),
+        MAX_LIMIT,
+      );
+      setMaxTimes(calcMaxTimes);
+      if (times > calcMaxTimes) setTimes(calcMaxTimes);
+    })();
+  }, [essence, tagMap]);
 
   useEffect(() => {
-    const updateMaxTimes = async () => {
-      const maxT = await calculateMaxTimes(multiplier);
-      setMaxTimes(maxT);
-      setTimes(maxT);
-    };
-    const debouncedUpdate = debounce(updateMaxTimes, 200);
-    if (recipeData) debouncedUpdate();
-  }, [multiplier]);
+    if (!recipeData) return;
+
+    (async () => {
+      const inv = await dataCache.getAsync('inventory');
+      const curr = recipeData.recipes[recipeIdx];
+      const calcMaxTimes = Math.min(
+        Math.max(
+          1,
+          Math.min(
+            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
+              let avail = 0;
+              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
+              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
+              else avail = inv[matId]?.count || 0;
+              return Math.floor(avail / (count * mult));
+            }),
+          ),
+        ),
+        MAX_LIMIT,
+      );
+      setMaxTimes(calcMaxTimes);
+      setTimes(calcMaxTimes);
+    })();
+  }, [mult]);
 
   const handleSubmit = async () => {
-    if (!selectedRecipe || !recipeData) {
+    if (!recipe || !recipeData) {
       toast.warning('请选择配方');
       return;
     }
 
-    const currentRecipe = recipeData.recipes[selectedRecipeIndex];
-    const finalInputs: RecipeInput = {};
+    const curr = recipeData.recipes[recipeIdx];
+    const inputs: Record<string, { count: number }> = {};
 
-    for (const [materialId, { count }] of Object.entries(currentRecipe.inputs)) {
-      if (isTagResource(materialId)) {
-        const selectedResource = tagSelections[materialId];
-        if (!selectedResource) {
-          toast.warning(`请选择 ${materialId} 的材料`);
+    for (const [matId, { count }] of Object.entries(curr.inputs)) {
+      if (isTag(matId)) {
+        const sel = tagMap[matId];
+        if (!sel) {
+          toast.warning(`请选择 ${matId} 的材料`);
           return;
         }
-        finalInputs[selectedResource] = { count: count * multiplier };
-      } else if (isMonsterEssence(materialId)) {
-        if (!selectedMaterial) {
+        inputs[sel] = { count: count * mult };
+      } else if (isEssence(matId)) {
+        if (!essence) {
           toast.warning('请选择怪物精华');
           return;
         }
-        finalInputs[selectedMaterial] = { count: count * multiplier };
+        inputs[essence] = { count: count * mult };
       } else {
-        finalInputs[materialId] = { count: count * multiplier };
+        inputs[matId] = { count: count * mult };
       }
     }
 
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
-      await alchemyManager.quickAlchemy(selectedRecipe, finalInputs, times);
+      await alchemyManager.submit(recipe, inputs, times);
       onClose();
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -316,14 +301,15 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
           <br />• 材料预览显示：需求数量 / 库存数量
         </div>
       </Card>
+
       <FormGroup label="选择配方">
         <Select
-          value={selectedRecipe}
-          onChange={(value) => {
-            setSelectedRecipe(value);
-            setSelectedRecipeIndex(0);
+          value={recipe}
+          onChange={(v) => {
+            setRecipe(v);
+            setRecipeIdx(0);
           }}
-          options={groupedOptions}
+          options={recipeOpts}
           placeholder="-- 请选择配方 --"
         />
       </FormGroup>
@@ -331,46 +317,39 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       {recipeData && recipeData.recipes.length > 1 && (
         <FormGroup label="配方选项">
           <Select
-            value={String(selectedRecipeIndex)}
-            onChange={(value) => setSelectedRecipeIndex(Number(value))}
-            options={recipeData.recipes.map((r, idx) => ({
-              value: String(idx),
-              label: r.description || `配方 ${idx + 1}`,
-            }))}
+            value={String(recipeIdx)}
+            onChange={(v) => setRecipeIdx(Number(v))}
+            options={recipeData.recipes.map((r, i) => ({ value: String(i), label: r.description || `配方 ${i + 1}` }))}
           />
         </FormGroup>
       )}
 
-      {materialOptions.length > 0 && (
+      {essenceOpts.length > 0 && (
         <FormGroup label="选择怪物精华">
-          <Select value={selectedMaterial} onChange={setSelectedMaterial} options={materialOptions} />
+          <Select value={essence} onChange={setEssence} options={essenceOpts} />
         </FormGroup>
       )}
 
-      {Object.entries(tagOptions).map(([tag, options]) => (
+      {Object.entries(tagOptsMap).map(([tag, opts]) => (
         <FormGroup key={tag} label={`选择 ${tag}`}>
-          <Select
-            value={tagSelections[tag] || ''}
-            onChange={(value) => setTagSelections({ ...tagSelections, [tag]: value })}
-            options={options}
-          />
+          <Select value={tagMap[tag] || ''} onChange={(v) => setTagMap({ ...tagMap, [tag]: v })} options={opts} />
         </FormGroup>
       ))}
 
-      <FormGroup label={`材料倍数: ${multiplier} (1 - ${maxMultiplier})`}>
-        <Slider value={multiplier} onInput={setMultiplier} min={1} max={maxMultiplier} step={1} />
+      <FormGroup label={`材料倍数: ${mult} (1 - ${maxMult})`}>
+        <Slider value={mult} onInput={setMult} min={1} max={maxMult} step={1} />
       </FormGroup>
 
       <FormGroup label={`制作次数: ${times} (1 - ${maxTimes})`}>
         <Slider value={times} onInput={setTimes} min={1} max={maxTimes} step={1} />
       </FormGroup>
 
-      {materialPreview && (
+      {preview && (
         <Card title="材料预览" style={{ minHeight: '60px' }}>
           <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
-            {materialPreview.map((item, idx) => (
-              <div key={idx} style={{ color: '#52c41a' }}>
-                {item.name}: {item.required} / {item.available}
+            {preview.map((p, i) => (
+              <div key={i} style={{ color: '#52c41a' }}>
+                {p.name}: {p.required} / {p.available}
               </div>
             ))}
           </div>
@@ -378,22 +357,22 @@ function AlchemyPanelContent({ onClose }: AlchemyPanelProps) {
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={isSubmitting}>
+        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={submitting}>
           取消
         </Button>
-        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={isSubmitting}>
-          {isSubmitting ? '提交中...' : '提交'}
+        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={submitting}>
+          {submitting ? '提交中...' : '提交'}
         </Button>
       </div>
     </>
   );
-}
+};
 
 export class AlchemyPanel {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
 
-  show(): void {
+  show() {
     if (this.isOpen) return;
     this.isOpen = true;
 
@@ -404,18 +383,15 @@ export class AlchemyPanel {
 
     render(
       <Modal isOpen={true} onClose={() => this.hide()} title="⚗️ 快速炼金">
-        <AlchemyPanelContent onClose={() => this.hide()} />
+        <AlchemyForm onClose={() => this.hide()} />
       </Modal>,
       this.container,
     );
   }
 
-  hide(): void {
+  hide() {
     if (!this.isOpen) return;
     this.isOpen = false;
-
-    if (this.container) {
-      render(null, this.container);
-    }
+    if (this.container) render(null, this.container);
   }
 }

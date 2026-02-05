@@ -32,6 +32,7 @@ export interface CraftItem {
   actionId: string;
   rewards: CraftReward[]; // 所有产出物品
   dependencies?: CraftDependency[];
+  banToKitty?: boolean; // 是否禁止小猫制造
 }
 
 /**

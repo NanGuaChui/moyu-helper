@@ -137,9 +137,9 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   }
 
   // 动态添加强化专家按钮（仅在datacache中有tavern数据且启用时显示）
-  if (tavernExpertEnabled && dataCache.get('tavern')) {
+  if (tavernExpertEnabled && dataCache.has('tavern')) {
     buttons.push({
-      text: tavernExpertManager.getButtonText(),
+      text: await tavernExpertManager.getButtonText(),
       onClick: () => tavernExpertManager.toggle(),
       order: 6,
     });
@@ -164,6 +164,7 @@ async function initUI(): Promise<void> {
     await checkAndNotifyNoFeatures();
   } catch (error) {
     logger.error('悬浮面板初始化失败', error);
+    toast.error('界面初始化失败，请刷新页面');
   }
 }
 
@@ -199,6 +200,7 @@ async function initFeatureModules(): Promise<void> {
   // 读取功能开关配置
   const battleGuardEnabled = await appConfig.BATTLE_GUARD_ENABLED.get();
   const qualityToolbarEnabled = await appConfig.QUALITY_TOOLBAR_ENABLED.get();
+  const questManagerEnabled = await appConfig.QUEST_MANAGER_ENABLED.get();
 
   // 初始化工具栏管理器
   if (qualityToolbarEnabled) {
@@ -208,6 +210,11 @@ async function initFeatureModules(): Promise<void> {
   // 初始化战斗防护
   if (battleGuardEnabled) {
     battleGuard.init();
+  }
+
+  // 初始化任务管理器
+  if (questManagerEnabled) {
+    app.quest.init();
   }
 
   // 初始化饱食度管理器

@@ -1,14 +1,15 @@
-import { logger } from './logger';
-import { eventBus } from './event-bus';
+/**
+ * WebSocket 监控模块
+ * 拦截游戏 WebSocket 连接，提供消息收发和事件订阅功能
+ */
+
 import * as pako from 'pako';
+import { logger } from './logger';
 import { taskQueue } from '@/utils/task-queue';
+import type { WebSocketMessage, WebSocketEventHandler, WSUserInfo } from '@/types/websocket';
 
-interface WebSocketMessage {
-  event: string;
-  payload: any;
-}
+// ==================== 类型定义 ====================
 
-type EventHandler = (data: WebSocketMessage) => void;
 type Unsubscribe = () => void;
 
 interface PendingBinary {
@@ -16,77 +17,152 @@ interface PendingBinary {
   num: number;
 }
 
+interface PendingMessage {
+  event: string;
+  data: any;
+}
+
+// ==================== 常量 ====================
+
 const MESSAGE_PREFIX = {
-  SEND: '42',
+  STANDARD: '42',
   BINARY_HEADER: '451-',
 } as const;
 
-const USER_CHECK_INTERVAL = 1000;
+// ==================== WebSocket 管理器 ====================
 
-class WebSocketMonitor {
-  private readonly handlers = new Map<string, Set<EventHandler>>();
+class WebSocketManager {
+  // 事件监听器
+  private readonly listeners = new Map<string, Set<WebSocketEventHandler>>();
+
+  // WebSocket 实例和用户状态
   private socket: WebSocket | null = null;
-  private userInfo: any = null;
-  private readonly pendingBinary: PendingBinary[] = [];
-  private readonly pendingMessages = new Map<string, any>();
-  private checkTimer: NodeJS.Timeout | null = null;
-  private isInitialized = false;
+  private userInfo: WSUserInfo | null = null;
 
+  // 用户就绪 Promise
+  private readyResolve: (() => void) | null = null;
+  private readyPromise: Promise<void>;
+
+  // 待处理数据
+  private readonly pendingBinary: PendingBinary[] = [];
+  private readonly pendingMessages: PendingMessage[] = [];
+
+  // 初始化状态
+  private initialized = false;
+
+  constructor() {
+    this.readyPromise = new Promise((resolve) => {
+      this.readyResolve = resolve;
+    });
+  }
+
+  // ==================== 公共 API ====================
+
+  /**
+   * 初始化 WebSocket 监控
+   */
   init(): void {
-    if (this.isInitialized) {
+    if (this.initialized) {
       logger.warn('WebSocket 监控已初始化，跳过重复初始化');
       return;
     }
+
     this.interceptWebSocket();
-    this.startUserCheck();
-    this.isInitialized = true;
+    this.initialized = true;
     logger.success('WebSocket 监控初始化完成');
   }
 
-  private startUserCheck(): void {
-    this.checkTimer = setInterval(() => {
-      if (this.userInfo && this.pendingMessages.size > 0) {
-        this.processPending();
-      }
-    }, USER_CHECK_INTERVAL);
+  /**
+   * 用户就绪 Promise
+   */
+  get ready(): Promise<void> {
+    return this.readyPromise;
   }
 
-  private processPending(): void {
-    if (this.checkTimer) {
-      clearInterval(this.checkTimer);
-      this.checkTimer = null;
-    }
-    logger.info(`处理 ${this.pendingMessages.size} 条待发送消息`);
-    this.pendingMessages.forEach((data, method) => void this.send(method, data));
-    this.pendingMessages.clear();
+  /**
+   * 是否已就绪
+   */
+  get isReady(): boolean {
+    return this.userInfo !== null;
   }
 
-  on(event: string | string[], handler: EventHandler): Unsubscribe {
+  /**
+   * 当前用户信息
+   */
+  get user(): WSUserInfo | null {
+    return this.userInfo;
+  }
+
+  /**
+   * 订阅事件
+   * @param event 事件名称（支持单个或数组）
+   * @param handler 事件处理器
+   * @returns 取消订阅函数
+   */
+  on(event: string | string[], handler: WebSocketEventHandler): Unsubscribe {
     const events = Array.isArray(event) ? event : [event];
-    events.forEach((evt) => {
-      const handlers = this.handlers.get(evt) ?? new Set<EventHandler>();
+
+    for (const evt of events) {
+      const handlers = this.listeners.get(evt) ?? new Set();
       handlers.add(handler);
-      this.handlers.set(evt, handlers);
-    });
+      this.listeners.set(evt, handlers);
+    }
 
-    return () => events.forEach((evt) => this.handlers.get(evt)?.delete(handler));
+    return () => {
+      for (const evt of events) {
+        this.listeners.get(evt)?.delete(handler);
+      }
+    };
   }
 
-  once(event: string | string[], handler: EventHandler): Unsubscribe {
-    const events = Array.isArray(event) ? event : [event];
-    const wrapper = (data: WebSocketMessage) => {
-      // 先清理所有事件的监听器，避免重复触发
-      events.forEach((evt) => this.handlers.get(evt)?.delete(wrapper));
+  /**
+   * 订阅事件（仅触发一次）
+   * @param event 事件名称（支持单个或数组）
+   * @param handler 事件处理器
+   * @returns 取消订阅函数
+   */
+  once(event: string | string[], handler: WebSocketEventHandler): Unsubscribe {
+    let triggered = false;
+
+    const wrapper: WebSocketEventHandler = (data) => {
+      if (triggered) return;
+      triggered = true;
+      unsubscribe();
       handler(data);
     };
-    return this.on(event, wrapper);
+
+    const unsubscribe = this.on(event, wrapper);
+
+    return () => {
+      if (!triggered) {
+        triggered = true;
+        unsubscribe();
+      }
+    };
   }
 
-  awaitOnce(event: string | string[], timeout = 10000): Promise<WebSocketMessage> {
+  /**
+   * 移除事件监听器
+   * @param event 事件名称
+   * @param handler 事件处理器
+   */
+  off(event: string, handler: WebSocketEventHandler): void {
+    this.listeners.get(event)?.delete(handler);
+  }
+
+  /**
+   * 等待事件（Promise 方式）
+   * @param event 事件名称（支持单个或数组）
+   * @param timeout 超时时间（毫秒）
+   * @returns Promise<WebSocketMessage>
+   */
+  waitFor(event: string | string[], timeout = 10000): Promise<WebSocketMessage> {
     return new Promise((resolve, reject) => {
+      const eventStr = Array.isArray(event) ? event.join(', ') : event;
+
       const timer = setTimeout(() => {
         unsubscribe();
-        reject(new Error(`等待事件 [${Array.isArray(event) ? event.join(', ') : event}] 超时`));
+        reject(new Error(`等待事件 [${eventStr}] 超时`));
       }, timeout);
 
       const unsubscribe = this.once(event, (data) => {
@@ -96,69 +172,18 @@ class WebSocketMonitor {
     });
   }
 
-  async sendAndListen(sendEvent: string, data: any = {}, timeout?: number): Promise<WebSocketMessage> {
-    const promise = new Promise<WebSocketMessage>((resolve, reject) => {
-      const timer = timeout
-        ? setTimeout(() => {
-            unsubscribe();
-            reject(new Error(`等待事件 [${sendEvent}] 超时`));
-          }, timeout)
-        : null;
-
-      const unsubscribe = this.once([`${sendEvent}:success`, `${sendEvent}:fail`, `${sendEvent}:error`], (data) => {
-        if (timer) clearTimeout(timer);
-        if (data.event === `${sendEvent}:fail` || data.event === `${sendEvent}:error`) {
-          reject(data);
-        } else {
-          resolve(data);
-        }
-      });
-    });
-    await this.send(sendEvent, data);
-    return promise;
-  }
-
-  async sendAndListenCustom(
-    sendEvent: string,
-    listenEvent: string | string[],
-    data: any = {},
-    timeout?: number,
-  ): Promise<WebSocketMessage> {
-    const promise = this.awaitOnce(listenEvent, timeout);
-    await this.send(sendEvent, data);
-    return promise;
-  }
-
-  async sendAndWaitEvent(method: string, data: any, eventName: string, timeout = 10000): Promise<void> {
-    const promise = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        eventBus.off(eventName, handler);
-        reject(new Error(`等待事件 [${eventName}] 超时`));
-      }, timeout);
-
-      const handler = (eventData: any) => {
-        try {
-          clearTimeout(timer);
-          eventBus.off(eventName, handler);
-          resolve(eventData);
-        } catch (error) {
-          clearTimeout(timer);
-          eventBus.off(eventName, handler);
-          reject(error);
-        }
-      };
-      eventBus.on(eventName, handler);
-    });
-
-    await this.send(method, data);
-    return promise;
-  }
-
-  async send(method: string, data: any = {}): Promise<void> {
+  /**
+   * 发送消息（不等待响应）
+   * @param event 事件名称
+   * @param data 消息数据
+   */
+  async emit(event: string, data: any = {}): Promise<void> {
+    // 用户未就绪时加入待发送队列
     if (!this.userInfo) {
-      if (!this.pendingMessages.has(method)) {
-        logger.warn(`消息 [${method}] 已加入待发送队列`);
-        this.pendingMessages.set(method, data);
+      const exists = this.pendingMessages.some((m) => m.event === event);
+      if (!exists) {
+        this.pendingMessages.push({ event, data });
+        logger.warn(`消息 [${event}] 已加入待发送队列`);
       }
       return;
     }
@@ -168,38 +193,111 @@ class WebSocketMonitor {
     }
 
     return taskQueue.add(() => {
-      const message = MESSAGE_PREFIX.SEND + JSON.stringify([method, { user: this.userInfo, data }]);
+      const message = MESSAGE_PREFIX.STANDARD + JSON.stringify([event, { user: this.userInfo, data }]);
       this.socket!.send(message);
-      logger.debug(`发送消息: ${method}`);
+      logger.debug(`发送消息: ${event}`);
     });
   }
 
+  /**
+   * 发送消息并等待响应（自动监听 success/fail/error）
+   * @param event 事件名称
+   * @param data 消息数据
+   * @param timeout 超时时间（毫秒）
+   */
+  async request(event: string, data: any = {}, timeout = 10000): Promise<WebSocketMessage> {
+    const responseEvents = [`${event}:success`, `${event}:fail`, `${event}:error`];
+
+    const responsePromise = new Promise<WebSocketMessage>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        unsubscribe();
+        reject(new Error(`请求 [${event}] 超时`));
+      }, timeout);
+
+      const unsubscribe = this.once(responseEvents, (response) => {
+        clearTimeout(timer);
+        if (response.event.endsWith(':fail') || response.event.endsWith(':error')) {
+          reject(response);
+        } else {
+          resolve(response);
+        }
+      });
+    });
+
+    await this.emit(event, data);
+    return responsePromise;
+  }
+
+  /**
+   * 发送消息并等待指定事件响应
+   * @param sendEvent 发送的事件名称
+   * @param listenEvent 监听的事件名称（支持单个或数组）
+   * @param data 消息数据
+   * @param timeout 超时时间（毫秒）
+   */
+  async requestRaw(
+    sendEvent: string,
+    listenEvent: string | string[],
+    data: any = {},
+    timeout = 10000,
+  ): Promise<WebSocketMessage> {
+    const responsePromise = this.waitFor(listenEvent, timeout);
+    await this.emit(sendEvent, data);
+    return responsePromise;
+  }
+
+  /**
+   * 销毁 WebSocket 监控
+   */
+  destroy(): void {
+    this.listeners.clear();
+    this.pendingBinary.length = 0;
+    this.pendingMessages.length = 0;
+    this.socket = null;
+    this.userInfo = null;
+    this.initialized = false;
+
+    // 重置 ready Promise
+    this.readyPromise = new Promise((resolve) => {
+      this.readyResolve = resolve;
+    });
+
+    logger.info('WebSocket 监控已销毁');
+  }
+
+  // ==================== 私有方法 - WebSocket 拦截 ====================
+
+  /**
+   * 拦截 WebSocket 连接
+   */
   private interceptWebSocket(): void {
-    const proto = WebSocket.prototype;
     const self = this;
+    const proto = WebSocket.prototype;
 
     // 拦截 send 方法
     const originalSend = proto.send;
     proto.send = function (data: any) {
-      if (self.isRealWebSocket(this)) {
+      if (self.isGameWebSocket(this)) {
         self.socket = this;
-        self.handleSend(data);
+        self.handleOutgoing(data);
       }
       return originalSend.call(this, data);
     };
 
     // 拦截 onmessage 属性
-    const descriptor = Object.getOwnPropertyDescriptor(proto, 'onmessage');
-    if (descriptor) {
+    const msgDescriptor = Object.getOwnPropertyDescriptor(proto, 'onmessage');
+    if (msgDescriptor?.set) {
       Object.defineProperty(proto, 'onmessage', {
-        ...descriptor,
-        set(callback: any) {
+        ...msgDescriptor,
+        set(callback: ((event: MessageEvent) => void) | null) {
           const ws = this;
-          const wrapped = (event: MessageEvent) => {
-            self.handleReceive(event.data);
-            callback?.call(ws, event);
-          };
-          descriptor.set!.call(this, wrapped);
+          const wrapped = callback
+            ? (event: MessageEvent) => {
+                self.handleIncoming(event.data);
+                callback.call(ws, event);
+              }
+            : null;
+          msgDescriptor.set!.call(this, wrapped);
         },
       });
     }
@@ -207,79 +305,162 @@ class WebSocketMonitor {
     // 拦截 addEventListener 方法
     const originalAddListener = proto.addEventListener;
     proto.addEventListener = function (type: string, listener: any, options?: any) {
-      if (!self.isRealWebSocket(this)) {
-        return originalAddListener.call(this, type, listener, options);
-      }
-
-      if (type !== 'message') {
+      if (!self.isGameWebSocket(this) || type !== 'message') {
         return originalAddListener.call(this, type, listener, options);
       }
 
       const ws = this;
       const wrapped = (event: Event) => {
         const msgEvent = event as MessageEvent;
-        self.handleReceive(msgEvent.data);
+        self.handleIncoming(msgEvent.data);
+
         if (typeof listener === 'function') {
           listener.call(ws, event);
         } else {
-          listener?.handleEvent(event);
+          listener?.handleEvent?.(event);
         }
       };
+
       return originalAddListener.call(this, type, wrapped, options);
     };
   }
 
-  private isRealWebSocket(obj: any): obj is WebSocket {
-    return obj instanceof WebSocket && obj.constructor === WebSocket;
+  /**
+   * 判断是否为游戏 WebSocket
+   */
+  private isGameWebSocket(ws: any): ws is WebSocket {
+    return ws instanceof WebSocket && ws.constructor === WebSocket;
   }
 
-  private handleSend(data: any): void {
+  // ==================== 私有方法 - 消息处理 ====================
+
+  /**
+   * 处理发送的消息（提取用户信息）
+   */
+  private handleOutgoing(data: any): void {
     if (this.userInfo) return;
 
-    this.userInfo = this.extractUser(data);
-    if (this.userInfo && this.pendingMessages.size > 0) {
-      this.processPending();
+    const user = this.extractUserInfo(data);
+    if (user) {
+      this.userInfo = user;
+      logger.info('用户信息已获取', user.name);
+
+      // 触发 ready
+      this.readyResolve?.();
+
+      // 处理待发送消息
+      this.flushPendingMessages();
     }
   }
 
-  private extractUser(data: any): any {
+  /**
+   * 从消息中提取用户信息
+   */
+  private extractUserInfo(data: any): WSUserInfo | null {
     try {
       if (typeof data !== 'string' || data.length <= 2) return null;
-
       const payload = JSON.parse(data.substring(2));
-      return payload[1]?.user?.name ? payload[1].user : null;
+      const user = payload[1]?.user;
+      return user?.name ? user : null;
     } catch {
       return null;
     }
   }
 
-  private handleReceive(data: any): void {
-    // 二进制数据：仅在有待合并事件时处理
+  /**
+   * 处理待发送消息队列
+   */
+  private flushPendingMessages(): void {
+    if (this.pendingMessages.length === 0) return;
+
+    logger.info(`处理 ${this.pendingMessages.length} 条待发送消息`);
+
+    for (const msg of this.pendingMessages) {
+      void this.emit(msg.event, msg.data);
+    }
+
+    this.pendingMessages.length = 0;
+  }
+
+  /**
+   * 处理接收的消息
+   */
+  private handleIncoming(data: any): void {
+    // 二进制数据
     if (data instanceof ArrayBuffer) {
       if (this.pendingBinary.length > 0) {
-        this.handle451Binary(data);
+        this.processBinaryMessage(data);
       }
       return;
     }
 
-    // 非字符串直接跳过
+    // 字符串消息
     if (typeof data !== 'string') return;
 
     if (data.startsWith(MESSAGE_PREFIX.BINARY_HEADER)) {
-      // 处理 451- 开头的消息（socket.io 二进制消息头）
-      this.handle451Header(data);
-    } else if (data.startsWith(MESSAGE_PREFIX.SEND)) {
-      // 处理 42 开头的普通消息
-      this.handle42Message(data);
+      this.processBinaryHeader(data);
+    } else if (data.startsWith(MESSAGE_PREFIX.STANDARD)) {
+      this.processStandardMessage(data);
     }
   }
 
-  private handle451Header(data: string): void {
+  /**
+   * 检查事件是否有监听器
+   */
+  private hasListeners(event: string): boolean {
+    const handlers = this.listeners.get(event);
+    return !!(handlers && handlers.size > 0);
+  }
+
+  /**
+   * 处理标准消息（42 前缀）
+   */
+  private processStandardMessage(data: string): void {
     try {
       const jsonStart = data.indexOf('[');
       if (jsonStart === -1) return;
 
-      const [event, obj] = JSON.parse(data.slice(jsonStart));
+      // 快速提取事件名（使用正则，避免完整 JSON.parse）
+      const eventMatch = data.slice(jsonStart).match(/^\["([^"]+)"/);
+      if (!eventMatch) return;
+
+      const event = eventMatch[1];
+
+      // 提前终止：没有监听器就不解析 payload
+      if (!this.hasListeners(event)) {
+        return;
+      }
+
+      // 有监听器才完整解析
+      const [, payloadStr] = JSON.parse(data.slice(jsonStart));
+      const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
+      this.dispatch({ event, payload });
+    } catch {
+      // 解析失败静默跳过
+    }
+  }
+
+  /**
+   * 处理二进制消息头（451- 前缀）
+   */
+  private processBinaryHeader(data: string): void {
+    try {
+      const jsonStart = data.indexOf('[');
+      if (jsonStart === -1) return;
+
+      // 快速提取事件名（使用正则，避免完整 JSON.parse）
+      const eventMatch = data.slice(jsonStart).match(/^\["([^"]+)"/);
+      if (!eventMatch) return;
+
+      const event = eventMatch[1];
+
+      // 提前终止：没有监听器就不入队，后续二进制数据会被跳过
+      if (!this.hasListeners(event)) {
+        return;
+      }
+
+      // 有监听器才完整解析并入队
+      const [, obj] = JSON.parse(data.slice(jsonStart));
       if (obj?._placeholder === true) {
         this.pendingBinary.push({ event, num: obj.num || 0 });
       }
@@ -288,78 +469,56 @@ class WebSocketMonitor {
     }
   }
 
-  private handle42Message(data: string): void {
-    try {
-      const jsonStart = data.indexOf('[');
-      if (jsonStart === -1) return;
+  /**
+   * 处理二进制消息体
+   */
+  private processBinaryMessage(data: ArrayBuffer): void {
+    const pending = this.pendingBinary.shift();
+    if (!pending) return;
 
-      const [event, payloadStr] = JSON.parse(data.slice(jsonStart));
-
-      if (event === 'dispatchTaskQueueToClient') {
-        console.log(event, payloadStr);
-      }
-      if (event) {
-        const payload = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
-        this.dispatch({ event, payload });
-      }
-    } catch {
-      // 解析失败静默跳过
-    }
-  }
-
-  private handle451Binary(data: ArrayBuffer): void {
-    const evt = this.pendingBinary.shift();
-    if (!evt) return;
+    const binary = new Uint8Array(data);
 
     try {
-      const bin = new Uint8Array(data);
-      const text = pako.inflate(bin, { to: 'string' });
+      // 尝试解压
+      const text = pako.inflate(binary, { to: 'string' });
+      let payload: any;
 
-      let parsed: any;
       try {
-        parsed = JSON.parse(text);
+        payload = JSON.parse(text);
       } catch {
-        parsed = text;
+        payload = text;
       }
 
-      this.dispatch({ event: evt.event, payload: parsed });
+      this.dispatch({ event: pending.event, payload });
     } catch {
-      // 解压失败，可能是明文，直接传递原始数据
-      this.dispatch({ event: evt.event, payload: new Uint8Array(data) });
+      // 解压失败，传递原始数据
+      this.dispatch({ event: pending.event, payload: binary });
     }
   }
 
-  private dispatch(data: WebSocketMessage): void {
-    if (!data?.event) return;
+  // ==================== 私有方法 - 事件分发 ====================
 
-    const handlers = this.handlers.get(data.event);
-    // 关键优化：没有监听器则直接跳过，避免不必要的日志和处理
+  /**
+   * 分发事件到监听器
+   */
+  private dispatch(message: WebSocketMessage): void {
+    if (!message?.event) return;
+
+    const handlers = this.listeners.get(message.event);
     if (!handlers || handlers.size === 0) return;
 
-    logger.debug(`接收事件: ${data.event}`, data.payload);
+    logger.debug(`接收事件: ${message.event}`, message.payload);
 
-    handlers.forEach((handler) => {
+    for (const handler of handlers) {
       try {
-        handler(data);
+        handler(message);
       } catch (error) {
-        logger.error(`事件处理失败 [${data.event}]`, error);
+        logger.error(`事件处理失败 [${message.event}]`, error);
       }
-    });
-  }
-
-  destroy(): void {
-    if (this.checkTimer) {
-      clearInterval(this.checkTimer);
-      this.checkTimer = null;
     }
-    this.handlers.clear();
-    this.pendingMessages.clear();
-    this.pendingBinary.length = 0;
-    this.socket = null;
-    this.userInfo = null;
-    this.isInitialized = false;
-    logger.info('WebSocket 监控已销毁');
   }
 }
 
-export const ws = new WebSocketMonitor();
+// ==================== 导出单例 ====================
+
+export const ws = new WebSocketManager();
