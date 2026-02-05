@@ -31,9 +31,9 @@ export const TAVERN_EXPERT_TYPES: TavernExpertType[] = [
   { id: 'battleLogisticsExpert', name: '战场后勤猫猫', shortName: '后勤', icon: '⚔️' },
   { id: 'fitnessCoachCat', name: '健身教练猫猫', shortName: '教练', icon: '🏋️' },
   { id: 'farmingAnimalExpert', name: '畜牧专家猫猫', shortName: '畜牧', icon: '🐮' },
-  { id: 'baseMercenary', name: '见习雇佣兵猫猫', shortName: '雇佣兵', icon: '🪖' },
   { id: 'sewingExpert', name: '缝纫专家猫猫', shortName: '缝纫', icon: '🧵' },
   { id: 'fishingExpert', name: '钓鱼专家猫猫', shortName: '钓鱼', icon: '🎣' },
+  { id: 'baseMercenary', name: '见习雇佣兵猫猫', shortName: '雇佣兵', icon: '🪖' },
 ];
 
 /**
@@ -300,44 +300,51 @@ const EXPERT_ITEM_STYLE: JSX.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'space-between',
-  padding: '12px',
+  padding: '8px 10px',
   background: '#f8f9fa',
-  borderRadius: '10px',
-  marginBottom: '8px',
+  borderRadius: '8px',
+  marginBottom: '6px',
 };
 
 const EXPERT_INFO_STYLE: JSX.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
-  gap: '10px',
+  gap: '8px',
+  flex: 1,
+  minWidth: 0,
 };
 
 const EXPERT_ICON_STYLE: JSX.CSSProperties = {
-  fontSize: '24px',
+  fontSize: '18px',
+  flexShrink: 0,
 };
 
 const EXPERT_NAME_STYLE: JSX.CSSProperties = {
-  fontSize: '14px',
+  fontSize: '13px',
   fontWeight: '500',
   color: '#1a1a1a',
+  whiteSpace: 'nowrap',
 };
 
 const EXPERT_STATUS_STYLE: JSX.CSSProperties = {
   fontSize: '12px',
   color: '#666',
+  display: 'flex',
+  alignItems: 'center',
+  marginLeft: '8px',
 };
 
 const STATUS_DOT_STYLE = (status: ExpertStatus): JSX.CSSProperties => ({
   display: 'inline-block',
-  width: '8px',
-  height: '8px',
+  width: '6px',
+  height: '6px',
   borderRadius: '50%',
-  marginRight: '6px',
+  marginRight: '4px',
   background: status === 'WORKING' ? '#22c55e' : status === 'PAUSED' ? '#f59e0b' : '#9ca3af',
 });
 
 const BUTTON_WRAPPER_STYLE: JSX.CSSProperties = {
-  minWidth: '70px',
+  flexShrink: 0,
 };
 
 /**
@@ -378,20 +385,18 @@ function ExpertItem({ info, onAction, loading }: ExpertItemProps) {
     <div style={EXPERT_ITEM_STYLE}>
       <div style={EXPERT_INFO_STYLE}>
         <span style={EXPERT_ICON_STYLE}>{type.icon}</span>
-        <div>
-          <div style={EXPERT_NAME_STYLE}>{type.name}</div>
-          <div style={EXPERT_STATUS_STYLE}>
-            <span style={STATUS_DOT_STYLE(status)} />
-            {getStatusText()}
-          </div>
-        </div>
+        <span style={EXPERT_NAME_STYLE}>{type.shortName}</span>
+        <span style={EXPERT_STATUS_STYLE}>
+          <span style={STATUS_DOT_STYLE(status)} />
+          {getStatusText()}
+        </span>
       </div>
       <div style={BUTTON_WRAPPER_STYLE}>
         <Button
           variant={buttonConfig.variant}
           onClick={() => onAction(type.id, buttonConfig.action)}
           disabled={loading}
-          style={{ padding: '6px 12px', fontSize: '12px' }}
+          style={{ padding: '4px 10px', fontSize: '11px' }}
         >
           {loading ? '...' : buttonConfig.text}
         </Button>
@@ -436,7 +441,7 @@ function TavernPanel({ isOpen, onClose, manager }: TavernPanelProps) {
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="🏠 酒馆管理" maxWidth="400px" maxHeight="85vh">
+    <Modal isOpen={isOpen} onClose={onClose} title="🏠 酒馆管理">
       <div>
         {expertsStatus.map((info) => (
           <ExpertItem
