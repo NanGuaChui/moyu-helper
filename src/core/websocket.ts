@@ -295,9 +295,9 @@ class WebSocketManager {
           const ws = this;
           const wrapped = callback
             ? (event: MessageEvent) => {
-              self.handleIncoming(event.data);
-              callback.call(ws, event);
-            }
+                self.handleIncoming(event.data);
+                callback.call(ws, event);
+              }
             : null;
           msgDescriptor.set!.call(this, wrapped);
         },

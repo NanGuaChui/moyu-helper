@@ -6,7 +6,6 @@
 import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
-import ITEMS_JSON from '../../scripts/items.json';
 import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
 const logger = createLogger('Craft');
 import type { CraftItem, CraftItemCategory } from '@/types';
@@ -18,16 +17,6 @@ interface CraftStep {
   name: string;
   actionId: string;
   count: number;
-}
-
-// 物品名称映射（从 items.json 提取）
-const ITEM_NAMES: Record<string, string> = {};
-if (typeof ITEMS_JSON === 'object' && ITEMS_JSON !== null) {
-  for (const [itemId, itemData] of Object.entries(ITEMS_JSON)) {
-    if (itemData && typeof itemData === 'object' && 'name' in itemData) {
-      ITEM_NAMES[itemId] = (itemData as { name: string }).name;
-    }
-  }
 }
 
 // ==================== 制造管理器 ====================
@@ -45,7 +34,32 @@ class CraftManager extends BaseFeature {
 
   /** 获取物品中文名称 */
   getItemName(itemId: string): string {
-    return ITEM_NAMES[itemId] || itemId;
+    // 从 craft-items 的 rewards 中查找
+    for (const category of this.categories) {
+      for (const item of category.items) {
+        for (const reward of item.rewards) {
+          if (reward.itemId === itemId && reward.label) {
+            return reward.label;
+          }
+        }
+      }
+    }
+    
+    // 从 craft-items 的 dependencies 中查找
+    for (const category of this.categories) {
+      for (const item of category.items) {
+        if (item.dependencies) {
+          for (const dep of item.dependencies) {
+            if (dep.itemId === itemId && dep.label) {
+              return dep.label;
+            }
+          }
+        }
+      }
+    }
+    
+    // 备选：返回 itemId
+    return itemId;
   }
 
   getCraftCategories(): CraftItemCategory[] {
@@ -87,7 +101,6 @@ class CraftManager extends BaseFeature {
     const best = candidates.reduce((best, current) =>
       countNonBasicDeps(current) < countNonBasicDeps(best) ? current : best,
     );
-    logger.debug(`为 ${rewardId} 选择配方 ${best.label}，候选数量：${candidates.length}`);
     return best;
   }
 
@@ -130,8 +143,6 @@ class CraftManager extends BaseFeature {
               producer.actionId,
               Math.max(producerRequests.get(producer.actionId) || 0, times)
             );
-          } else {
-            logger.debug(`找不到产出 ${dep.itemId} 的配方`);
           }
         }
       }
