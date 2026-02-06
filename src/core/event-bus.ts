@@ -1,8 +1,14 @@
 /**
  * 事件总线 - 统一事件管理
+ * 优化：添加监听器数量限制和自动清理机制
  */
 
+import { logger } from './logger';
+
 type EventHandler = (...args: any[]) => void;
+
+/** 每个事件最大监听器数量 */
+const MAX_LISTENERS_PER_EVENT = 50;
 
 class EventBus {
   private events = new Map<string, Set<EventHandler>>();
@@ -11,14 +17,33 @@ class EventBus {
     if (!this.events.has(event)) {
       this.events.set(event, new Set());
     }
-    this.events.get(event)!.add(handler);
+
+    const handlers = this.events.get(event)!;
+
+    // 防止监听器数量过多导致内存泄漏
+    if (handlers.size >= MAX_LISTENERS_PER_EVENT) {
+      logger.warn(
+        `[EventBus] 事件 "${event}" 监听器数量已达上限 (${MAX_LISTENERS_PER_EVENT})，请检查是否存在内存泄漏`,
+      );
+      return () => {};
+    }
+
+    handlers.add(handler);
 
     // 返回取消订阅函数
     return () => this.off(event, handler);
   }
 
   off(event: string, handler: EventHandler): void {
-    this.events.get(event)?.delete(handler);
+    const handlers = this.events.get(event);
+    if (!handlers) return;
+
+    handlers.delete(handler);
+
+    // 自动清理空的事件集合，释放内存
+    if (handlers.size === 0) {
+      this.events.delete(event);
+    }
   }
 
   emit(event: string, ...args: any[]): void {
@@ -26,7 +51,7 @@ class EventBus {
       try {
         handler(...args);
       } catch (error) {
-        console.error(`Event handler error [${event}]:`, error);
+        logger.error(`Event handler error [${event}]:`, error);
       }
     });
   }

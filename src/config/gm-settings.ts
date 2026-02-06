@@ -76,8 +76,9 @@ export const appConfig = {
 
   // 功能开关
   BATTLE_GUARD_ENABLED: createGMConfigSetting('battle_guard_enabled', false),
-  QUALITY_TOOLBAR_ENABLED: createGMConfigSetting('quality_toolbar_enabled', false),
+  TOOLBAR_TOGGLE_ENABLED: createGMConfigSetting('toolbar_toggle_enabled', false),
   TAVERN_EXPERT_ENABLED: createGMConfigSetting('tavern_expert_enabled', false),
+
   CRAFT_PANEL_ENABLED: createGMConfigSetting('craft_panel_enabled', false),
   SKILL_ALLOCATION_ENABLED: createGMConfigSetting('skill_allocation_enabled', false),
   QUICK_ALCHEMY_ENABLED: createGMConfigSetting('quick_alchemy_enabled', false),

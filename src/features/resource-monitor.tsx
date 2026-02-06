@@ -5,11 +5,12 @@
 
 import { render } from 'preact';
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics, getTAllGameResource, sleep } from '@/utils';
+import { getTAllGameResource, sleep } from '@/utils';
 
 // ==================== 类型定义 ====================
 
@@ -175,7 +176,7 @@ class ResourceMonitor {
     } catch (error) {
       toast.hideProgress(PROGRESS_ID);
       logger.error('获取库存数据失败', error);
-      toast.error('获取库存数据失败，请稍后重试');
+      toast.error(getWsErrorMessage(error, '获取库存数据失败，请稍后重试'));
     }
   }
 
@@ -197,9 +198,9 @@ class ResourceMonitor {
 
     const remainingItems = this.autoBuyEnabled
       ? problematicItems.filter((item) => {
-          const id = this.nameToIdCache?.get(item.name);
-          return item.type !== 'insufficient' || !id || !BASE_RESOURCES.includes(id as any);
-        })
+        const id = this.nameToIdCache?.get(item.name);
+        return item.type !== 'insufficient' || !id || !BASE_RESOURCES.includes(id as any);
+      })
       : problematicItems;
 
     const insufficientCount = remainingItems.filter((item) => item.type === 'insufficient').length;
@@ -282,15 +283,13 @@ class ResourceMonitor {
         } catch (error) {
           toast.hideProgress(PROGRESS_ID);
           logger.error(`购买 ${item.name} 失败`, error);
-          toast.warning(`购买 ${item.name} 失败`);
+          toast.warning(`购买 ${item.name} 失败: ${getWsErrorMessage(error, '未知错误')}`);
           return false;
         }
       }
     }
 
-    if (hasBought) {
-      analytics.track('资源监控', 'auto_buy', boughtItems.join(', '));
-    } else {
+    if (!hasBought) {
       toast.hideProgress(PROGRESS_ID);
     }
 

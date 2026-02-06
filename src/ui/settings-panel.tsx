@@ -13,6 +13,7 @@ import { useState, useEffect } from 'preact/hooks';
 import type { resourceMonitor } from '@/features/resource-monitor';
 import type { satietyManager } from '@/features/satiety-manager';
 import { type FoodType, QUEST_TASK_TYPES } from '@/config/defaults';
+
 import { appConfig } from '@/config/gm-settings';
 import { toast, eventBus, EVENTS } from '@/core';
 import { Modal, Card, Row, Input, Checkbox, Button, Select, Section } from './components';
@@ -150,13 +151,6 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
-            checked={settings[appConfig.TAVERN_EXPERT_ENABLED.key]}
-            onChange={(v) => updateSetting(appConfig.TAVERN_EXPERT_ENABLED.key, v)}
-            label="酒馆专家 - 自动刷新酒馆任务"
-          />
-        </Row>
-        <Row>
-          <Checkbox
             checked={settings[appConfig.QUICK_ALCHEMY_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.QUICK_ALCHEMY_ENABLED.key, v)}
             label="快速炼金 - 快速炼制战利品精华"
@@ -178,9 +172,19 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
-            checked={settings[appConfig.QUALITY_TOOLBAR_ENABLED.key]}
-            onChange={(v) => updateSetting(appConfig.QUALITY_TOOLBAR_ENABLED.key, v)}
-            label="缩小生活质量图标 - 优化界面显示"
+            checked={settings[appConfig.TOOLBAR_TOGGLE_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.TOOLBAR_TOGGLE_ENABLED.key, v)}
+            label="隐藏生活质量工具栏 - 启动后自动隐藏，可通过菜单切换显示"
+          />
+        </Row>
+      </Card>
+
+      <Card title="🏠 酒馆配置">
+        <Row>
+          <Checkbox
+            checked={settings[appConfig.TAVERN_EXPERT_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.TAVERN_EXPERT_ENABLED.key, v)}
+            label="启用酒馆管理 - 在浮动菜单显示酒馆管理入口"
           />
         </Row>
       </Card>

@@ -4,9 +4,9 @@
  */
 
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
-import { analytics } from '@/utils';
 
 class SatietyManager {
   private isInitialized = false;
@@ -54,11 +54,10 @@ class SatietyManager {
         const foodName = this.foodType === 'berry' ? '浆果' : this.foodType === 'fish' ? '鱼' : '豪华猫粮';
         logger.info(`当前饱食度: ${currentSatiety}, 已使用${foodName}: ${totalUsed}`);
         toast.success(`✅ 已使用 ${totalUsed} ${foodName}`);
-        analytics.track('饱食度', 'auto_use_food', `${foodName}x${totalUsed}`);
       }
     } catch (error) {
       logger.error('检查饱食度失败', error);
-      toast.error('检查饱食度失败');
+      toast.error(getWsErrorMessage(error, '检查饱食度失败'));
     } finally {
       this.isChecking = false;
     }

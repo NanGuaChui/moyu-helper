@@ -2,147 +2,111 @@
  * 工具栏管理器
  *
  * 功能说明：
- * - 将生活质量工具栏转换为图标模式
- * - 节省屏幕空间，提升游戏体验
- * - 支持点击展开/收起
+ * - 控制生活质量工具栏的显示/隐藏
+ * - 通过菜单按钮切换状态
  */
+
+import { logger } from '@/core';
 
 /**
  * 工具栏管理器类
  */
 class QualityToolbarManager {
-  private collapsed = true;
-  private observer: MutationObserver | null = null;
-  private processed = false;
-  private clickHandler: ((e: Event) => void) | null = null;
+  private isHidden = false;
+  private toolbarContainer: HTMLElement | null = null;
+  private originalDisplay: string = '';
 
   /**
-   * 初始化工具栏管理器
+   * 初始化工具栏管理器，等待DOM元素渲染后自动隐藏
    */
   init(): void {
-    this.checkAndTransform();
-    this.startObserver();
+    logger.debug('工具栏管理器已就绪');
+    this.toggle();
   }
 
-  /**
-   * 检查并转换工具栏
-   */
-  private checkAndTransform(): void {
-    if (this.processed) return;
-
-    const toolbar = this.findToolbar();
-    if (toolbar) {
-      this.transformToIcon(toolbar);
-      this.processed = true;
-      this.stopObserver();
-    }
-  }
 
   /**
-   * 查找工具栏元素
+   * 查找工具栏容器（轮询查找，最多等待10秒）
    */
-  private findToolbar(): HTMLElement | null {
-    const spans = document.querySelectorAll('span');
-    for (const el of spans) {
-      if (el.textContent?.includes('生活质量工具栏')) {
-        return el as HTMLElement;
+  private findToolbarContainer(): Promise<HTMLElement> {
+    return new Promise((resolve, reject) => {
+      if (this.toolbarContainer) {
+        resolve(this.toolbarContainer);
+        return;
       }
-    }
-    return null;
-  }
 
-  private startObserver(): void {
-    this.observer = new MutationObserver(() => this.checkAndTransform());
-    this.observer.observe(document.body, { childList: true, subtree: true });
-  }
+      const timeout = 10000;
+      const interval = 200;
+      const startTime = Date.now();
 
-  private stopObserver(): void {
-    this.observer?.disconnect();
-    this.observer = null;
-  }
+      const tryFind = (): HTMLElement | null => {
+        // 优先查找 fixed 定位的 div，减少遍历范围
+        const fixedElements = document.querySelectorAll<HTMLElement>('div[style*="position: fixed"]');
+        for (const el of fixedElements) {
+          const span = el.querySelector('span');
+          if (span?.textContent?.includes('生活质量工具栏')) {
+            return el;
+          }
+        }
+        return null;
+      };
 
-  /**
-   * 将工具栏转换为图标模式
-   */
-  private transformToIcon(toolbar: HTMLElement): void {
-    let container = toolbar;
-    while (container && container.style.position !== 'fixed') {
-      container = container.parentElement as HTMLElement;
-      if (!container) return;
-    }
+      const poll = () => {
+        const container = tryFind();
+        if (container) {
+          this.toolbarContainer = container;
+          this.originalDisplay = container.style.display || 'flex';
+          resolve(container);
+          return;
+        }
 
-    const titleSpan = container.querySelector('span');
-    const toggleBtn = container.querySelector<HTMLButtonElement>('.fp-toggle-btn');
-    const subContent = container.querySelector<HTMLElement>('.fp-sub-content');
+        if (Date.now() - startTime >= timeout) {
+          reject(new Error('查找工具栏容器超时（10秒）'));
+          return;
+        }
 
-    if (!titleSpan || !toggleBtn || !subContent) return;
+        setTimeout(poll, interval);
+      };
 
-    const iconState = {
-      width: '48px',
-      height: '48px',
-      minWidth: '48px',
-      padding: '0',
-      borderRadius: '50%',
-    };
-
-    const expandedState = {
-      width: 'auto',
-      height: 'auto',
-      minWidth: '120px',
-      padding: '10px 16px',
-      borderRadius: '12px',
-    };
-
-    titleSpan.textContent = '🛠️';
-    titleSpan.style.fontSize = '20px';
-    titleSpan.style.lineHeight = '1';
-    toggleBtn.style.display = 'none';
-    subContent.style.display = 'none';
-
-    Object.assign(container.style, iconState, {
-      transition: 'all 0.3s ease',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
+      poll();
     });
+  }
 
-    const header = container.querySelector<HTMLElement>('div');
-    if (header) {
-      header.style.width = '100%';
-      header.style.justifyContent = 'center';
-    }
+  /**
+   * 切换工具栏显示/隐藏
+   */
+  async toggle(): Promise<void> {
+    try {
+      const container = await this.findToolbarContainer();
 
-    this.clickHandler = (e) => {
-      e.stopPropagation();
-      this.collapsed = !this.collapsed;
+      this.isHidden = !this.isHidden;
 
-      if (this.collapsed) {
-        Object.assign(container.style, iconState);
-        titleSpan.textContent = '🛠️';
-        titleSpan.style.fontSize = '20px';
-        toggleBtn.style.display = 'none';
-        subContent.style.display = 'none';
-        if (header) header.style.justifyContent = 'center';
+      if (this.isHidden) {
+        container.style.display = 'none';
+        logger.debug('工具栏已隐藏');
       } else {
-        Object.assign(container.style, expandedState);
-        titleSpan.textContent = '生活质量工具栏';
-        titleSpan.style.fontSize = '14px';
-        toggleBtn.style.display = 'inline-block';
-        subContent.style.display = 'block';
-        if (header) header.style.justifyContent = 'space-between';
+        container.style.display = this.originalDisplay;
+        logger.debug('工具栏已显示');
       }
-    };
+    } catch (error) {
+      logger.error('切换工具栏失败', error);
+      throw error;
+    }
+  }
 
-    container.addEventListener('click', this.clickHandler);
+  /**
+   * 获取当前状态
+   */
+  getIsHidden(): boolean {
+    return this.isHidden;
   }
 
   /**
    * 清理资源
    */
   destroy(): void {
-    this.stopObserver();
-    this.clickHandler = null;
-    this.processed = false;
+    this.toolbarContainer = null;
+    this.isHidden = false;
   }
 }
 

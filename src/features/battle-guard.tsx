@@ -5,25 +5,21 @@
 
 import { ws, eventBus, EVENTS } from '@/core';
 import { logger } from '@/core/logger';
-import { analytics } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
 interface BattleGuardConfig {
   maxRetries: number;
   retryDelay: number;
-  checkInterval: number;
 }
 
 const DEFAULT_CONFIG: BattleGuardConfig = {
   maxRetries: 5,
   retryDelay: 2000,
-  checkInterval: 30000,
 };
 
 class BattleGuard {
   private retryCount = 0;
   private isMessageSent = false;
-  private checkTimer: NodeJS.Timeout | null = null;
   private config: BattleGuardConfig = DEFAULT_CONFIG;
 
   /**
@@ -75,10 +71,8 @@ class BattleGuard {
     try {
       await ws.emit('msgPref:battle:set', { enable: false });
       logger.success('[战斗防护] 战斗已禁用');
-      analytics.track('战斗防护', 'disable_battle', '成功');
       this.isMessageSent = true;
       this.retryCount = 0;
-      this.scheduleCheck();
     } catch {
       logger.warn('[战斗防护] 发送失败，等待重试');
       setTimeout(() => this.trySendDisableMessage(), this.config.retryDelay);
@@ -86,26 +80,9 @@ class BattleGuard {
   }
 
   /**
-   * 定期检查战斗状态
-   */
-  private scheduleCheck(): void {
-    if (this.checkTimer) {
-      clearTimeout(this.checkTimer);
-    }
-    this.checkTimer = setTimeout(() => {
-      logger.debug('[战斗防护] 定期检查战斗状态');
-      this.scheduleCheck();
-    }, this.config.checkInterval);
-  }
-
-  /**
-   * 销毁
+   * 销毁/重置状态
    */
   destroy(): void {
-    if (this.checkTimer) {
-      clearTimeout(this.checkTimer);
-      this.checkTimer = null;
-    }
     this.isMessageSent = false;
     this.retryCount = 0;
     logger.info('[战斗防护] 已销毁');

@@ -1,8 +1,9 @@
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
-import { analytics, getResourceDetail, getTAllGameResource } from '@/utils';
+import { getResourceDetail, getTAllGameResource } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
 import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
 
@@ -44,10 +45,9 @@ class AlchemyService {
       toast.info(`正在提交炼金任务 ${getResourceName(recipeId)} x${times}...`);
       await ws.request('alchemy:auto:create', { input: inputs, times }, 30000);
       toast.success('✅ 炼金任务提交成功！');
-      analytics.track('炼金', 'quick_alchemy_success', `${getResourceName(recipeId)} x${times}`);
-    } catch (error: any) {
+    } catch (error) {
       logger.error('炼金失败', error);
-      toast.error(error?.payload?.data?.msg || '炼金任务提交失败');
+      toast.error(getWsErrorMessage(error, '炼金任务提交失败'));
     }
   }
 }
