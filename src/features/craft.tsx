@@ -6,6 +6,7 @@
 import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
+import ITEMS_JSON from '../../scripts/items.json';
 import { logger, toast, ws, dataCache, eventBus } from '@/core';
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
@@ -18,11 +19,26 @@ interface CraftStep {
   count: number;
 }
 
+// 物品名称映射（从 items.json 提取）
+const ITEM_NAMES: Record<string, string> = {};
+if (typeof ITEMS_JSON === 'object' && ITEMS_JSON !== null) {
+  for (const [itemId, itemData] of Object.entries(ITEMS_JSON)) {
+    if (itemData && typeof itemData === 'object' && 'name' in itemData) {
+      ITEM_NAMES[itemId] = (itemData as { name: string }).name;
+    }
+  }
+}
+
 // ==================== 制造管理器 ====================
 
 class CraftManager {
   private categories: CraftItemCategory[] = DEFAULT_CRAFT_ITEMS;
   private running = false;
+
+  /** 获取物品中文名称 */
+  getItemName(itemId: string): string {
+    return ITEM_NAMES[itemId] || itemId;
+  }
 
   getCraftCategories(): CraftItemCategory[] {
     return this.categories;
@@ -30,16 +46,6 @@ class CraftManager {
 
   getCraftItems(): CraftItem[] {
     return this.categories.flatMap((category) => category.items);
-  }
-
-  getDisplayName(name: string): string {
-    const result = name.replace(/^(制作|酿造|缝制|熬制|烹饪|种植|锻造|熔炼|开采|烧制)/, '');
-    return result || name;
-  }
-
-  calculateCraftPlan(actionId: string, targetCount: number): Array<{ itemName: string; count: number }> {
-    const plan = this.buildPlan(actionId, targetCount);
-    return plan.map((step) => ({ itemName: step.name, count: step.count }));
   }
 
   private findByActionId(actionId: string): CraftItem | undefined {
@@ -70,9 +76,11 @@ class CraftManager {
       return item.dependencies.filter((dep) => !basicResources.has(dep.itemId)).length;
     };
 
-    return candidates.reduce((best, current) =>
+    const best = candidates.reduce((best, current) =>
       countNonBasicDeps(current) < countNonBasicDeps(best) ? current : best,
     );
+    logger.debug(`为 ${rewardId} 选择配方 ${best.label}，候选数量：${candidates.length}`);
+    return best;
   }
 
   isBannedForKitty(actionId: string): boolean {
@@ -89,27 +97,43 @@ class CraftManager {
 
     const needs = new Map<string, number>();
     const plan: CraftStep[] = [];
-    const visited = new Set<string>();
+    const calculating = new Set<string>();
 
     const calculate = (id: string, count: number) => {
-      if (visited.has(id)) return;
-      visited.add(id);
+      if (calculating.has(id)) return;  // 防止循环依赖
+      calculating.add(id);
 
       const current = this.findByActionId(id);
       if (!current) return;
 
+      // 累加需求量，因为同一配方可能被多个地方需要
       needs.set(id, (needs.get(id) || 0) + count);
 
+      // 收集所有依赖的生产者及其需求次数
+      const producerRequests = new Map<string, number>();
       if (current.dependencies) {
         for (const dep of current.dependencies) {
           const producer = this.findByRewardId(dep.itemId);
           if (producer) {
             const reward = producer.rewards.find((r) => r.itemId === dep.itemId)!;
             const times = Math.ceil((dep.count * count) / reward.count);
-            calculate(producer.actionId, times);
+            // 同一生产者的多个依赖，取最大次数
+            producerRequests.set(
+              producer.actionId,
+              Math.max(producerRequests.get(producer.actionId) || 0, times)
+            );
+          } else {
+            logger.debug(`找不到产出 ${dep.itemId} 的配方`);
           }
         }
       }
+
+      // 递归计算所有生产者
+      for (const [producerId, producerCount] of producerRequests) {
+        calculate(producerId, producerCount);
+      }
+
+      calculating.delete(id);  // 允许从其他路径再次访问
     };
 
     const sort = (id: string) => {
@@ -130,16 +154,19 @@ class CraftManager {
     };
 
     calculate(actionId, targetCount);
-    visited.clear();
     sort(actionId);
 
     return plan;
   }
 
-  async optimizePlan(plan: CraftStep[], targetActionId: string): Promise<CraftStep[]> {
+  async optimizePlan(plan: CraftStep[], targetActionId: string): Promise<{
+    optimized: CraftStep[];
+    missingResources: Array<{ itemId: string; need: number; stock: number }>;
+  }> {
     try {
       const optimized: CraftStep[] = [];
       const resourceNeeds = new Map<string, number>();
+      const missingResources: Array<{ itemId: string; need: number; stock: number }> = [];
 
       for (let i = plan.length - 1; i >= 0; i--) {
         const step = plan[i];
@@ -153,20 +180,37 @@ class CraftManager {
           optimized.unshift({ ...step, count });
           if (item.dependencies) {
             for (const dep of item.dependencies) {
-              resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + dep.count * count);
+              const need = dep.count * count;
+              resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + need);
+
+              // 检查依赖品是否有库存
+              const stock = await dataCache.getItemCountAsync(dep.itemId);
+              const currentNeed = resourceNeeds.get(dep.itemId) || 0;
+              if (stock < currentNeed) {
+                const existing = missingResources.find(m => m.itemId === dep.itemId);
+                if (existing) {
+                  existing.need = Math.max(existing.need, currentNeed);
+                } else {
+                  missingResources.push({ itemId: dep.itemId, need: currentNeed, stock });
+                }
+              }
             }
           }
           continue;
         }
 
         // 依赖项需要检查产出和库存
-        const mainReward = item.rewards[0];
-        if (!mainReward) continue;
+        // 计算需要制造的数量：找到所有需要的产出物品，计算最大需求
+        let maxCount = 0;
+        for (const reward of item.rewards) {
+          const stock = await dataCache.getItemCountAsync(reward.itemId);
+          const need = resourceNeeds.get(reward.itemId) || 0;
+          const netNeed = Math.max(0, need - stock);
+          const requiredCount = Math.ceil(netNeed / reward.count);
+          maxCount = Math.max(maxCount, requiredCount);
+        }
 
-        const stock = await dataCache.getItemCountAsync(mainReward.itemId);
-        const need = resourceNeeds.get(mainReward.itemId) || 0;
-        const netNeed = Math.max(0, need - stock);
-        count = Math.ceil(netNeed / mainReward.count);
+        count = maxCount;
 
         if (count <= 0) {
           logger.info(`跳过 ${step.name}（库存充足）`);
@@ -177,14 +221,27 @@ class CraftManager {
 
         if (item.dependencies) {
           for (const dep of item.dependencies) {
-            resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + dep.count * count);
+            const need = dep.count * count;
+            resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + need);
+
+            // 检查依赖品是否有库存
+            const stock = await dataCache.getItemCountAsync(dep.itemId);
+            const currentNeed = resourceNeeds.get(dep.itemId) || 0;
+            if (stock < currentNeed) {
+              const existing = missingResources.find(m => m.itemId === dep.itemId);
+              if (existing) {
+                existing.need = Math.max(existing.need, currentNeed);
+              } else {
+                missingResources.push({ itemId: dep.itemId, need: currentNeed, stock });
+              }
+            }
           }
         }
       }
 
-      return optimized;
+      return { optimized, missingResources };
     } catch {
-      return plan;
+      return { optimized: plan, missingResources: [] };
     }
   }
 
@@ -233,7 +290,7 @@ class CraftManager {
         return;
       }
 
-      const optimized = await this.optimizePlan(plan, actionId);
+      const { optimized } = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info('无需制造');
         toast.hideProgress('craft');
@@ -308,7 +365,7 @@ class CraftManager {
         return;
       }
 
-      const optimized = await this.optimizePlan(plan, actionId);
+      const { optimized } = await this.optimizePlan(plan, actionId);
       if (optimized.length === 0) {
         toast.info(`🐱 ${kittyName} 无需制造`);
         toast.hideProgress('craft');
@@ -393,6 +450,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [count, setCount] = useState(1);
   const [clearTasks, setClearTasks] = useState(true);
   const [preview, setPreview] = useState('请选择物品');
+  const [missingResources, setMissingResources] = useState<Array<{ itemId: string; need: number; stock: number }>>([]);
   const [kitties, setKitties] = useState<any[]>([]);
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
@@ -432,25 +490,45 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
       debounce(async (item: string, num: number) => {
         if (!item) {
           setPreview('请选择物品');
+          setMissingResources([]);
           return;
         }
 
         const plan = craftManager.buildPlan(item, num);
         if (plan.length === 0) {
           setPreview('⚠️ 无法计算制造计划');
+          setMissingResources([]);
           return;
         }
 
-        const optimized = await craftManager.optimizePlan(plan, item);
+        const { optimized, missingResources } = await craftManager.optimizePlan(plan, item);
+
+        // 过滤掉无法快捷制造的物品（在制造配方中找不到生产者）
+        const craftItems = craftManager.getCraftItems();
+        const canCraftItems = new Set(
+          plan.flatMap(p => {
+            const item = craftItems.find(item => item.actionId === p.actionId);
+            return item?.rewards.map(r => r.itemId) || [];
+          })
+        );
+        const missingCanCraft = missingResources.filter(m => !canCraftItems.has(m.itemId));
+        setMissingResources(missingCanCraft);
+
         if (optimized.length === 0) {
-          setPreview('✅ 库存充足，无需制造');
+          if (missingResources.length > 0) {
+            setPreview('⚠️ 库存不足，无法制造');
+          } else {
+            setPreview('✅ 库存充足，无需制造');
+          }
           return;
         }
 
-        const stepsHTML = optimized
+        let previewHTML = '';
+        previewHTML += optimized
           .map((step: any, index: number) => `${index + 1}. ${step.name} ×${step.count}`)
           .join('\n');
-        setPreview(stepsHTML);
+
+        setPreview(previewHTML);
       }, 300),
     [],
   );
@@ -598,6 +676,24 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
       <Card title="制造计划预览" style={{ minHeight: '60px' }}>
         <div style={{ fontSize: '13px', color: '#666', lineHeight: '1.6', whiteSpace: 'pre-line' }}>{preview}</div>
       </Card>
+
+      {missingResources.length > 0 && (
+        <Card
+          title="⚠️ 缺失资源（无法快捷制造）"
+          style={{
+            background: '#fff3cd',
+            borderColor: '#ffc107',
+          }}
+        >
+          <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
+            {missingResources.map(m => (
+              <div key={m.itemId} style={{ color: '#856404', marginBottom: '4px' }}>
+                • {craftManager.getItemName(m.itemId)}: 需要 {m.need}, 库存 {m.stock}
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <Button onClick={handleCraft}>开始制造</Button>
 

@@ -125,7 +125,8 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
         // 检查是否跳过此步骤
         if (data?.skip) {
           logger.info(`[快捷功能] 跳过步骤: ${step.event}`);
-          toast.info(`[快捷功能] 跳过步骤 ${i + 1}/${config.steps.length}`);
+          toast.progress(`${config.label} - 跳过步骤 ${i + 1}/${config.steps.length}`, 'quick-actions');
+          await sleep(300);
           continue;
         }
 

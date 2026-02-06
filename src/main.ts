@@ -291,7 +291,5 @@ void waitForElement('.user-dropdown').then(() => {
     await initUI();
     analytics.track('脚本', 'script_start', `v${GM.info.script.version}`);
     logger.success('UI 初始化完成');
-
-
   }, 1000);
 });
