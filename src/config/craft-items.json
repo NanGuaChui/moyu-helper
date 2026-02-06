@@ -1191,6 +1191,35 @@
     "label": "特殊制造",
     "items": [
       {
+        "value": "craftLuckyCatStatue",
+        "label": "制作幸运猫神像",
+        "actionId": "craftLuckyCatStatue",
+        "rewards": [
+          {
+            "itemId": "catRelic",
+            "count": 1
+          },
+          {
+            "itemId": "catPawCoin",
+            "count": 0.3
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "catStatue",
+            "count": 1
+          },
+          {
+            "itemId": "moonlightBell",
+            "count": 1
+          },
+          {
+            "itemId": "mysticalEssence",
+            "count": 5
+          }
+        ]
+      },
+      {
         "value": "brewMysticalCatnipPotion",
         "label": "炼制猫薄荷药剂",
         "actionId": "brewMysticalCatnipPotion",
