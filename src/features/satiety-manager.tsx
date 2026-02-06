@@ -4,6 +4,7 @@
  */
 
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
 
@@ -56,7 +57,7 @@ class SatietyManager {
       }
     } catch (error) {
       logger.error('检查饱食度失败', error);
-      toast.error('检查饱食度失败');
+      toast.error(getWsErrorMessage(error, '检查饱食度失败'));
     } finally {
       this.isChecking = false;
     }

@@ -13,7 +13,7 @@ import { useState, useEffect } from 'preact/hooks';
 import type { resourceMonitor } from '@/features/resource-monitor';
 import type { satietyManager } from '@/features/satiety-manager';
 import { type FoodType, QUEST_TASK_TYPES } from '@/config/defaults';
-import { TAVERN_EXPERT_TYPES } from '@/features/tavern-expert';
+
 import { appConfig } from '@/config/gm-settings';
 import { toast, eventBus, EVENTS } from '@/core';
 import { Modal, Card, Row, Input, Checkbox, Button, Select, Section } from './components';
@@ -172,9 +172,9 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
-            checked={settings[appConfig.QUALITY_TOOLBAR_ENABLED.key]}
-            onChange={(v) => updateSetting(appConfig.QUALITY_TOOLBAR_ENABLED.key, v)}
-            label="缩小生活质量图标 - 优化界面显示"
+            checked={settings[appConfig.TOOLBAR_TOGGLE_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.TOOLBAR_TOGGLE_ENABLED.key, v)}
+            label="隐藏生活质量工具栏 - 启动后自动隐藏，可通过菜单切换显示"
           />
         </Row>
       </Card>
@@ -187,37 +187,6 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             label="启用酒馆管理 - 在浮动菜单显示酒馆管理入口"
           />
         </Row>
-        <Row label="自动续约阈值(小时)">
-          <Input
-            type="number"
-            value={settings[appConfig.TAVERN_AUTO_RENEW_HOURS.key]}
-            onChange={(v) => updateSetting(appConfig.TAVERN_AUTO_RENEW_HOURS.key, parseInt(v) || 24)}
-            min={1}
-            max={168}
-            step={1}
-            style={{ width: '100px' }}
-          />
-        </Row>
-        <div style={{ marginTop: '8px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>选择要自动续约的专家:</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {TAVERN_EXPERT_TYPES.map((expert) => (
-              <Checkbox
-                key={expert.id}
-                checked={settings[appConfig.TAVERN_AUTO_RENEW_EXPERTS.key]?.includes(expert.id) || false}
-                onChange={(checked) => {
-                  const current = settings[appConfig.TAVERN_AUTO_RENEW_EXPERTS.key] || [];
-                  const updated = checked
-                    ? [...current, expert.id]
-                    : current.filter((id: string) => id !== expert.id);
-                  updateSetting(appConfig.TAVERN_AUTO_RENEW_EXPERTS.key, updated);
-                }}
-                label={`${expert.icon} ${expert.shortName}`}
-                style={{ margin: 0 }}
-              />
-            ))}
-          </div>
-        </div>
       </Card>
 
       <Card title="📜 任务管理配置">
