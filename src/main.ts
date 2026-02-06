@@ -13,6 +13,7 @@ import { CraftPanel } from './features/craft';
 import { SkillAllocationPanel } from './features/skill-allocation';
 import { AlchemyPanel } from './features/quick-alchemy';
 import { logger, ws, dataCache, toast } from './core';
+import { getWsErrorMessage } from './utils';
 import {
   questManager,
   qualityToolbarManager,
@@ -90,6 +91,7 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
   const quickAlchemyEnabled = await appConfig.QUICK_ALCHEMY_ENABLED.get();
   const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
+  const toolbarToggleEnabled = await appConfig.TOOLBAR_TOGGLE_ENABLED.get();
 
   // 技能加点
   if (skillAllocationEnabled) {
@@ -145,6 +147,15 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
+  // 工具栏显示/隐藏按钮
+  if (toolbarToggleEnabled) {
+    buttons.push({
+      text: app.toolbar.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏',
+      onClick: () => app.toolbar.toggle(),
+      order: 8,
+    });
+  }
+
   // 动态添加资源监控按钮（仅在启用时显示）
   const resourceButton = app.resources.getButton();
   if (resourceButton) {
@@ -164,7 +175,7 @@ async function initUI(): Promise<void> {
     await checkAndNotifyNoFeatures();
   } catch (error) {
     logger.error('悬浮面板初始化失败', error);
-    toast.error('界面初始化失败，请刷新页面');
+    toast.error(getWsErrorMessage(error, '界面初始化失败，请刷新页面'));
   }
 }
 
@@ -182,7 +193,7 @@ async function checkAndNotifyNoFeatures(): Promise<void> {
     appConfig.AUTO_USE_BERRY_ENABLED.get(),
     appConfig.QUICK_ACTIONS_ENABLED.get(),
     appConfig.QUICK_ALCHEMY_ENABLED.get(),
-    appConfig.QUALITY_TOOLBAR_ENABLED.get(),
+    appConfig.TOOLBAR_TOGGLE_ENABLED.get(),
   ]);
 
   if (!featureFlags.some(Boolean)) {
@@ -199,11 +210,11 @@ async function initFeatureModules(): Promise<void> {
 
   // 读取功能开关配置
   const battleGuardEnabled = await appConfig.BATTLE_GUARD_ENABLED.get();
-  const qualityToolbarEnabled = await appConfig.QUALITY_TOOLBAR_ENABLED.get();
+  const toolbarToggleEnabled = await appConfig.TOOLBAR_TOGGLE_ENABLED.get();
   const questManagerEnabled = await appConfig.QUEST_MANAGER_ENABLED.get();
 
   // 初始化工具栏管理器
-  if (qualityToolbarEnabled) {
+  if (toolbarToggleEnabled) {
     app.toolbar.init();
   }
 
@@ -234,9 +245,6 @@ async function initFeatureModules(): Promise<void> {
     if (tavernExpertEnabled) {
       // 延迟显示酒馆状态，确保数据已加载
       void tavernExpertManager.showTavernStatus();
-
-      // 初始化酒馆自动续约
-      tavernExpertManager.initAutoRenew();
     }
   });
 
@@ -258,28 +266,19 @@ async function main(): Promise<void> {
 }
 
 /**
- * 等待指定元素出现
+ * 等待指定元素出现（轮询方式）
  */
 function waitForElement(selector: string): Promise<Element> {
   return new Promise((resolve) => {
-    const element = document.querySelector(selector);
-    if (element) {
-      resolve(element);
-      return;
-    }
-
-    const observer = new MutationObserver(() => {
+    const check = () => {
       const element = document.querySelector(selector);
       if (element) {
-        observer.disconnect();
         resolve(element);
+      } else {
+        setTimeout(check, 500);
       }
-    });
-
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    };
+    check();
   });
 }
 
@@ -292,5 +291,7 @@ void waitForElement('.user-dropdown').then(() => {
     await initUI();
     analytics.track('脚本', 'script_start', `v${GM.info.script.version}`);
     logger.success('UI 初始化完成');
+
+
   }, 1000);
 });

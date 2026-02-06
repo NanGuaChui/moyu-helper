@@ -5,6 +5,7 @@
 
 import { render } from 'preact';
 import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
@@ -175,7 +176,7 @@ class ResourceMonitor {
     } catch (error) {
       toast.hideProgress(PROGRESS_ID);
       logger.error('获取库存数据失败', error);
-      toast.error('获取库存数据失败，请稍后重试');
+      toast.error(getWsErrorMessage(error, '获取库存数据失败，请稍后重试'));
     }
   }
 
@@ -282,7 +283,7 @@ class ResourceMonitor {
         } catch (error) {
           toast.hideProgress(PROGRESS_ID);
           logger.error(`购买 ${item.name} 失败`, error);
-          toast.warning(`购买 ${item.name} 失败`);
+          toast.warning(`购买 ${item.name} 失败: ${getWsErrorMessage(error, '未知错误')}`);
           return false;
         }
       }

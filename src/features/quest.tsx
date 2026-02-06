@@ -4,6 +4,7 @@
  */
 
 import { toast, ws, logger, eventBus, EVENTS } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 import { sleep } from '@/utils';
 
@@ -84,7 +85,7 @@ class QuestManager {
       return quests;
     } catch (error) {
       logger.error('获取任务列表失败', error);
-      toast.error('获取任务列表超时，请稍后重试');
+      toast.error(getWsErrorMessage(error, '获取任务列表超时，请稍后重试'));
       throw error;
     }
   }
@@ -279,7 +280,7 @@ class QuestManager {
     } catch (error) {
       logger.error('任务处理失败', error);
       toast.hideProgress('quest');
-      toast.error('任务处理失败，请稍后重试');
+      toast.error(getWsErrorMessage(error, '任务处理失败，请稍后重试'));
     }
   }
 

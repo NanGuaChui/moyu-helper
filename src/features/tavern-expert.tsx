@@ -6,8 +6,8 @@
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { logger, toast, ws, dataCache, eventBus } from '@/core';
-import { appConfig } from '@/config/gm-settings';
 import { Modal, Button } from '@/ui/components';
+import { getWsErrorMessage } from '@/utils';
 import type { TavernExpert } from '@/types/game-data';
 import type { JSX } from 'preact';
 
@@ -53,67 +53,6 @@ interface ExpertStatusInfo {
 class TavernExpertManager {
   private loadingExperts: Set<string> = new Set();
   private panelContainer: HTMLDivElement | null = null;
-  private autoRenewInitialized = false;
-
-  /**
-   * 初始化自动续约监听
-   */
-  initAutoRenew(): void {
-    if (this.autoRenewInitialized) return;
-    this.autoRenewInitialized = true;
-
-    eventBus.on('tavernUpdated', () => {
-      void this.checkAndAutoRenew();
-    });
-
-    // 初始检查一次
-    void this.checkAndAutoRenew();
-    logger.info('酒馆自动续约监听已初始化');
-  }
-
-  /**
-   * 检查并执行自动续约
-   */
-  private async checkAndAutoRenew(): Promise<void> {
-    try {
-      const selectedExperts = await appConfig.TAVERN_AUTO_RENEW_EXPERTS.get();
-      if (selectedExperts.length === 0) return;
-
-      const thresholdHours = await appConfig.TAVERN_AUTO_RENEW_HOURS.get();
-      const allExperts = await this.getAllExperts();
-      const now = Date.now();
-
-      for (const expert of allExperts) {
-        // 只处理选中的专家
-        if (!selectedExperts.includes(expert.type)) continue;
-
-        // 只处理工作中的专家
-        if (expert.state !== 'WORKING') continue;
-
-        const endTime = new Date(expert.end_date).getTime();
-        const remainingMs = endTime - now;
-        const remainingHours = remainingMs / (1000 * 60 * 60);
-
-        // 剩余时间低于阈值时自动续约
-        if (remainingHours > 0 && remainingHours <= thresholdHours) {
-          const expertType = this.getExpertType(expert.type);
-          const expertName = expertType?.name || expert.type;
-
-          logger.info(`${expertName} 剩余 ${remainingHours.toFixed(2)} 小时，触发自动续约 ${thresholdHours} 小时`);
-
-          try {
-            await ws.request('tavern:renewExpert', { catId: expert.type, hours: thresholdHours });
-            toast.success(`🔄 ${expertName} 已自动续约 ${thresholdHours} 小时`);
-          } catch (error) {
-            logger.error(`${expertName} 自动续约失败`, error);
-            toast.error(`${expertName} 自动续约失败`);
-          }
-        }
-      }
-    } catch (error) {
-      logger.error('自动续约检查失败', error);
-    }
-  }
 
   /**
    * 获取专家类型信息
@@ -189,7 +128,7 @@ class TavernExpertManager {
       }
     } catch (error) {
       logger.error(`${expertName}操作失败`, error);
-      toast.error('操作失败，请稍后重试');
+      toast.error(`${expertName}: ${getWsErrorMessage(error)}`);
     } finally {
       this.loadingExperts.delete(expertId);
     }

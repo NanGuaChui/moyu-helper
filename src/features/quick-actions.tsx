@@ -5,6 +5,7 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { ws, toast, dataCache } from '@/core';
+import { getWsErrorMessage } from '@/utils';
 import { logger } from '@/core/logger';
 import { Modal, Select, Button } from '@/ui/components';
 import { sleep } from '@/utils';
@@ -151,7 +152,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     } catch (error) {
       logger.error(`[快捷功能] ${config.label} 执行失败`);
       logger.error(JSON.stringify(error, null, 4));
-      toast.error(`${config.label} 执行失败`);
+      toast.error(`${config.label}: ${getWsErrorMessage(error, '执行失败')}`);
     } finally {
       setLoading(null);
       toast.hideProgress('quick-actions');
