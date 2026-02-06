@@ -4,11 +4,12 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import { ws, toast, dataCache } from '@/core';
+import { ws, toast, dataCache, BaseFeature } from '@/core';
 import { getWsErrorMessage } from '@/utils';
 import { logger } from '@/core/logger';
 import { Modal, Select, Button } from '@/ui/components';
 import { sleep } from '@/utils';
+import { qualityToolbarManager } from './quality-toolbar';
 
 interface MessageStep {
   type: 'auto' | 'select';
@@ -96,24 +97,40 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   },
 ];
 
+interface ToolbarAction {
+  label: string;
+  description: string;
+  getLabel: () => string;
+  action: () => void;
+}
+
+const TOOLBAR_ACTIONS: ToolbarAction[] = [
+  {
+    label: '切换工具栏',
+    description: '显示或隐藏生活质量工具栏',
+    getLabel: () => qualityToolbarManager.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏',
+    action: () => qualityToolbarManager.toggle(),
+  },
+];
+
 interface QuickActionsModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
 function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
-  const [loading, setLoading] = useState<string | null>(null);
   const [userSelectionOptions, setUserSelectionOptions] = useState<Array<{ value: string; label: string }>>([]);
   const [userSelection, setUserSelection] = useState('');
   const [waitingForSelection, setWaitingForSelection] = useState(false);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [prevResult, setPrevResult] = useState<any>(null);
   const [currentConfig, setCurrentConfig] = useState<MessageConfig | null>(null);
+  const [currentLabel, setCurrentLabel] = useState<string | null>(null);
 
   const executeSteps = async (config: MessageConfig, startIndex: number = 0) => {
     if (!config) return;
 
-    setLoading(config.label);
+    setCurrentLabel(config.label);
     toast.progress(`正在执行：${config.label}...`, 'quick-actions');
     try {
       let result = prevResult;
@@ -139,7 +156,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
           setCurrentStepIndex(i);
           setPrevResult(result);
           setWaitingForSelection(true);
-          setLoading(null);
+          setCurrentLabel(null);
           toast.hideProgress('quick-actions');
           return;
         } else {
@@ -154,48 +171,87 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       logger.error(JSON.stringify(error, null, 4));
       toast.error(`${config.label}: ${getWsErrorMessage(error, '执行失败')}`);
     } finally {
-      setLoading(null);
+      setCurrentLabel(null);
       toast.hideProgress('quick-actions');
     }
   };
 
   const handleExecute = async (config: MessageConfig) => {
-    setLoading(config.label);
+    if (quickActions.isRunning) {
+      toast.warning('快捷功能执行中');
+      return;
+    }
+    setCurrentLabel(config.label);
     setCurrentConfig(config);
     setCurrentStepIndex(0);
     setPrevResult(null);
     setUserSelection('');
-    await executeSteps(config, 0);
-    setLoading(null);
+    quickActions.setRunning(true);
+    try {
+      await executeSteps(config, 0);
+    } finally {
+      quickActions.setRunning(false);
+    }
   };
 
   const handleContinue = async () => {
     if (!userSelection || !currentConfig) return;
     setWaitingForSelection(false);
     setUserSelectionOptions([]);
-    await executeSteps(currentConfig, currentStepIndex + 1);
+    quickActions.setRunning(true);
+    try {
+      await executeSteps(currentConfig, currentStepIndex + 1);
+    } finally {
+      quickActions.setRunning(false);
+    }
+  };
+
+  const [, forceUpdate] = useState(0);
+
+  const handleToolbarAction = (action: ToolbarAction) => {
+    action.action();
+    forceUpdate((n) => n + 1);
   };
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="快捷功能">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {!waitingForSelection ? (
-          MESSAGE_CONFIGS.map((config) => (
-            <div key={config.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <Button
-                onClick={() => handleExecute(config)}
-                disabled={loading === config.label}
-                style={{ width: '100%' }}
-              >
-                {loading === config.label ? '执行中...' : config.label}
-              </Button>
-              <div
-                style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
-              >
-                {config.description}
+          <>
+            {/* 工具栏操作 */}
+            {TOOLBAR_ACTIONS.map((action) => (
+              <div key={action.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Button
+                  onClick={() => handleToolbarAction(action)}
+                  style={{ width: '100%' }}
+                >
+                  {action.getLabel()}
+                </Button>
+                <div
+                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                >
+                  {action.description}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            {/* 消息操作 */}
+            {MESSAGE_CONFIGS.map((config) => (
+              <div key={config.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Button
+                  onClick={() => handleExecute(config)}
+                  disabled={quickActions.isRunning}
+                  style={{ width: '100%' }}
+                >
+                  {quickActions.isRunning && currentLabel === config.label ? '执行中...' : config.label}
+                </Button>
+                <div
+                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                >
+                  {config.description}
+                </div>
+              </div>
+            ))}
+          </>
         ) : (
           <>
             <Select
@@ -204,8 +260,8 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
               options={userSelectionOptions}
               placeholder="请选择用户"
             />
-            <Button onClick={handleContinue} disabled={!userSelection || !!loading} style={{ width: '100%' }}>
-              {loading ? '执行中...' : '继续执行'}
+            <Button onClick={handleContinue} disabled={!userSelection || quickActions.isRunning} style={{ width: '100%' }}>
+              {quickActions.isRunning ? '执行中...' : '继续执行'}
             </Button>
           </>
         )}
@@ -214,9 +270,21 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
   );
 }
 
-class QuickActions {
+class QuickActions extends BaseFeature {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
+
+  protected onInit(): void {
+    logger.info('快捷功能初始化完成');
+  }
+
+  protected onReload(): void {
+    // 快捷功能没有配置项需要重载
+  }
+
+  setRunning(value: boolean): void {
+    this._running = value;
+  }
 
   openModal(): void {
     if (!this.container) {

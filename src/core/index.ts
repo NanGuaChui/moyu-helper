@@ -6,3 +6,4 @@ export * from './toast';
 export * from './websocket';
 export * from './data-cache';
 export * from './event-bus';
+export * from './base-feature';

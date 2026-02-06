@@ -174,7 +174,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
           <Checkbox
             checked={settings[appConfig.TOOLBAR_TOGGLE_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.TOOLBAR_TOGGLE_ENABLED.key, v)}
-            label="隐藏生活质量工具栏 - 启动后自动隐藏，可通过菜单切换显示"
+            label="隐藏生活质量 - 启动后自动隐藏，可通过菜单切换显示"
           />
         </Row>
       </Card>
