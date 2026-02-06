@@ -10,7 +10,9 @@ import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { appConfig } from '@/config/gm-settings';
 import type { SkillAllocationSummary, AllocationResult } from '@/types/features';
-import { ws, logger, toast, BaseFeature } from '@/core';
+import { ws, toast, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('SkillAllocation');
 import { sleep } from '@/utils';
 import { Modal, FormGroup, Select, Checkbox, Button } from '@/ui/components';
 

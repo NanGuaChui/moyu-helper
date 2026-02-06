@@ -6,7 +6,9 @@
  * - 通过菜单按钮切换状态
  */
 
-import { logger, BaseFeature } from '@/core';
+import { BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('QualityToolbar');
 
 /**
  * 工具栏管理器类

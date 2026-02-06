@@ -3,7 +3,9 @@
  * 自动监控饱食度并使用食物
  */
 
-import { logger, toast, dataCache, ws, eventBus, EVENTS, BaseFeature } from '@/core';
+import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('SatietyManager');
 import { getWsErrorMessage } from '@/utils';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';

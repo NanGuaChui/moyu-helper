@@ -7,7 +7,9 @@
  * - 提供同步和异步数据获取接口
  */
 
-import { logger } from './logger';
+import { createLogger } from './logger';
+
+const logger = createLogger('DataCache');
 import { ws } from './websocket';
 import { eventBus } from './event-bus';
 import type { UserInfo, Inventory, TavernExpert } from '@/types/game-data';

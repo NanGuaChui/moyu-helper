@@ -5,7 +5,9 @@
 
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { logger, toast, ws, dataCache, eventBus, BaseFeature } from '@/core';
+import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('TavernExpert');
 import { Modal, Button } from '@/ui/components';
 import { getWsErrorMessage } from '@/utils';
 import type { TavernExpert } from '@/types/game-data';

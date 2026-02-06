@@ -1,6 +1,8 @@
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { logger, toast, ws, dataCache, BaseFeature } from '@/core';
+import { toast, ws, dataCache, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('Alchemy');
 import { getWsErrorMessage } from '@/utils';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
 import { getResourceDetail, getTAllGameResource } from '@/utils';

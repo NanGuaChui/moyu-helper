@@ -4,7 +4,9 @@
  */
 
 import { render } from 'preact';
-import { logger, toast, dataCache, ws, eventBus, EVENTS, BaseFeature } from '@/core';
+import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('ResourceMonitor');
 import { getWsErrorMessage } from '@/utils';
 import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';

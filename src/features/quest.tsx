@@ -3,7 +3,9 @@
  * 自动刷新和执行游戏任务
  */
 
-import { toast, ws, logger, eventBus, EVENTS, BaseFeature } from '@/core';
+import { toast, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('Quest');
 import { getWsErrorMessage } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 import { sleep } from '@/utils';

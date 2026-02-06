@@ -4,12 +4,12 @@
 
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
-import { ws, toast, dataCache, BaseFeature } from '@/core';
-import { getWsErrorMessage } from '@/utils';
-import { logger } from '@/core/logger';
+import { ws, toast, dataCache, BaseFeature, createLogger } from '@/core';
+import { getWsErrorMessage, sleep } from '@/utils';
 import { Modal, Select, Button } from '@/ui/components';
-import { sleep } from '@/utils';
 import { qualityToolbarManager } from './quality-toolbar';
+
+const logger = createLogger('QuickActions');
 
 interface MessageStep {
   type: 'auto' | 'select';

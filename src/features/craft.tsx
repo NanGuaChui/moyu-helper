@@ -6,7 +6,9 @@
 import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
-import { logger, toast, ws, dataCache, eventBus, BaseFeature } from '@/core';
+import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('Craft');
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
 import { debounce, throttle, getWsErrorMessage } from '@/utils';

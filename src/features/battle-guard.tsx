@@ -4,7 +4,9 @@
  */
 
 import { ws, eventBus, EVENTS, BaseFeature } from '@/core';
-import { logger } from '@/core/logger';
+import { createLogger } from '@/core/logger';
+
+const logger = createLogger('BattleGuard');
 import { appConfig } from '@/config/gm-settings';
 
 interface BattleGuardConfig {
