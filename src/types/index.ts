@@ -13,6 +13,7 @@ export * from './features';
 export interface CraftDependency {
   itemId: string;
   count: number;
+  label?: string; // 中文名称
 }
 
 /**
@@ -21,6 +22,7 @@ export interface CraftDependency {
 export interface CraftReward {
   itemId: string;
   count: number; // 期望产出数量（基础数量 × 概率）
+  label?: string; // 中文名称
 }
 
 /**

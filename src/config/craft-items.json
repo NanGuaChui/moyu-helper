@@ -18,7 +18,8 @@
         "dependencies": [
           {
             "itemId": "gold",
-            "count": 25
+            "count": 25,
+            "label": "金币"
           }
         ],
         "banToKitty": true
@@ -30,7 +31,8 @@
         "rewards": [
           {
             "itemId": "coal",
-            "count": 2
+            "count": 2,
+            "label": "煤炭"
           }
         ]
       },
@@ -41,13 +43,15 @@
         "rewards": [
           {
             "itemId": "rainbowShard",
-            "count": 1
+            "count": 1,
+            "label": "彩虹碎片"
           }
         ],
         "dependencies": [
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ]
       }
@@ -64,11 +68,13 @@
         "rewards": [
           {
             "itemId": "fishSoup",
-            "count": 1
+            "count": 1,
+            "label": "鱼汤"
           },
           {
             "itemId": "mysteryCan",
-            "count": 0.05
+            "count": 0.05,
+            "label": "神秘罐头"
           }
         ]
       },
@@ -79,21 +85,25 @@
         "rewards": [
           {
             "itemId": "dawnBlossomWine",
-            "count": 1
+            "count": 1,
+            "label": "晨露精酿"
           }
         ],
         "dependencies": [
           {
             "itemId": "dawnBlossom",
-            "count": 4
+            "count": 4,
+            "label": "晨露花"
           },
           {
             "itemId": "honey",
-            "count": 1
+            "count": 1,
+            "label": "蜂蜜"
           },
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ]
       },
@@ -104,13 +114,15 @@
         "rewards": [
           {
             "itemId": "berryWine",
-            "count": 1
+            "count": 1,
+            "label": "浆果酒"
           }
         ],
         "dependencies": [
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ]
       },
@@ -121,21 +133,25 @@
         "rewards": [
           {
             "itemId": "windBellWine",
-            "count": 1
+            "count": 1,
+            "label": "铃语精酿"
           }
         ],
         "dependencies": [
           {
             "itemId": "windBellHerb",
-            "count": 4
+            "count": 4,
+            "label": "风铃草"
           },
           {
             "itemId": "honey",
-            "count": 1
+            "count": 1,
+            "label": "蜂蜜"
           },
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ]
       },
@@ -146,17 +162,20 @@
         "rewards": [
           {
             "itemId": "custardPudding",
-            "count": 1
+            "count": 1,
+            "label": "蛋奶布丁"
           }
         ],
         "dependencies": [
           {
             "itemId": "milk",
-            "count": 10
+            "count": 10,
+            "label": "牛奶"
           },
           {
             "itemId": "chickenEgg",
-            "count": 8
+            "count": 8,
+            "label": "鸡蛋"
           }
         ]
       },
@@ -167,13 +186,15 @@
         "rewards": [
           {
             "itemId": "ryeBread",
-            "count": 1
+            "count": 1,
+            "label": "黑麦面包"
           }
         ],
         "dependencies": [
           {
             "itemId": "rye",
-            "count": 10
+            "count": 10,
+            "label": "黑麦"
           }
         ]
       },
@@ -184,21 +205,25 @@
         "rewards": [
           {
             "itemId": "cloudFluffCandy",
-            "count": 1
+            "count": 1,
+            "label": "软软棉花糖"
           }
         ],
         "dependencies": [
           {
             "itemId": "cloudCotton",
-            "count": 2
+            "count": 2,
+            "label": "云絮"
           },
           {
             "itemId": "honey",
-            "count": 4
+            "count": 4,
+            "label": "蜂蜜"
           },
           {
             "itemId": "slimeGel",
-            "count": 1
+            "count": 1,
+            "label": "史莱姆凝胶"
           }
         ]
       },
@@ -209,13 +234,15 @@
         "rewards": [
           {
             "itemId": "simpleSalad",
-            "count": 1
+            "count": 1,
+            "label": "野草沙拉"
           }
         ],
         "dependencies": [
           {
             "itemId": "herb",
-            "count": 1
+            "count": 1,
+            "label": "草药"
           }
         ]
       }
@@ -232,25 +259,30 @@
         "rewards": [
           {
             "itemId": "pearl",
-            "count": 1
+            "count": 1,
+            "label": "珍珠"
           },
           {
             "itemId": "moonPearl",
-            "count": 0.05
+            "count": 0.05,
+            "label": "月光珍珠"
           },
           {
             "itemId": "blackPearl",
-            "count": 0.01
+            "count": 0.01,
+            "label": "黑珍珠"
           }
         ],
         "dependencies": [
           {
             "itemId": "sand",
-            "count": 15
+            "count": 15,
+            "label": "沙子"
           },
           {
             "itemId": "nutrientEssence",
-            "count": 10
+            "count": 10,
+            "label": "营养精华"
           }
         ]
       },
@@ -261,7 +293,8 @@
         "rewards": [
           {
             "itemId": "silk",
-            "count": 2
+            "count": 2,
+            "label": "蚕丝"
           }
         ]
       },
@@ -272,11 +305,13 @@
         "rewards": [
           {
             "itemId": "wool",
-            "count": 2
+            "count": 2,
+            "label": "羊毛"
           },
           {
             "itemId": "animalManure",
-            "count": 0.24
+            "count": 0.24,
+            "label": "动物粪肥"
           }
         ]
       },
@@ -287,11 +322,13 @@
         "rewards": [
           {
             "itemId": "milk",
-            "count": 2
+            "count": 2,
+            "label": "牛奶"
           },
           {
             "itemId": "animalManure",
-            "count": 0.24
+            "count": 0.24,
+            "label": "动物粪肥"
           }
         ]
       },
@@ -302,11 +339,13 @@
         "rewards": [
           {
             "itemId": "chickenEgg",
-            "count": 2
+            "count": 2,
+            "label": "鸡蛋"
           },
           {
             "itemId": "animalManure",
-            "count": 0.1
+            "count": 0.1,
+            "label": "动物粪肥"
           }
         ]
       }
@@ -323,25 +362,30 @@
         "rewards": [
           {
             "itemId": "fluff",
-            "count": 1
+            "count": 1,
+            "label": "绒毛"
           },
           {
             "itemId": "stone",
-            "count": 0.2
+            "count": 0.2,
+            "label": "矿石"
           },
           {
             "itemId": "iron",
-            "count": 0.2
+            "count": 0.2,
+            "label": "铁"
           },
           {
             "itemId": "coal",
-            "count": 0.2
+            "count": 0.2,
+            "label": "煤炭"
           }
         ],
         "dependencies": [
           {
             "itemId": "fluffstone",
-            "count": 3
+            "count": 3,
+            "label": "绒毛岩"
           }
         ]
       },
@@ -352,21 +396,25 @@
         "rewards": [
           {
             "itemId": "cashmereToy",
-            "count": 1
+            "count": 1,
+            "label": "毛绒玩具"
           }
         ],
         "dependencies": [
           {
             "itemId": "wool",
-            "count": 20
+            "count": 20,
+            "label": "羊毛"
           },
           {
             "itemId": "cashmere",
-            "count": 8
+            "count": 8,
+            "label": "羊绒布料"
           },
           {
             "itemId": "plushFur",
-            "count": 5
+            "count": 5,
+            "label": "毛绒绒"
           }
         ]
       },
@@ -377,21 +425,25 @@
         "rewards": [
           {
             "itemId": "fluffFabric",
-            "count": 1
+            "count": 1,
+            "label": "绒毛布料"
           }
         ],
         "dependencies": [
           {
             "itemId": "catHairball",
-            "count": 10
+            "count": 10,
+            "label": "猫毛球"
           },
           {
             "itemId": "silkFabric",
-            "count": 1
+            "count": 1,
+            "label": "丝绸布料"
           },
           {
             "itemId": "fluff",
-            "count": 5
+            "count": 5,
+            "label": "绒毛"
           }
         ]
       },
@@ -402,21 +454,25 @@
         "rewards": [
           {
             "itemId": "silkFabric",
-            "count": 1
+            "count": 1,
+            "label": "丝绸布料"
           }
         ],
         "dependencies": [
           {
             "itemId": "catHairball",
-            "count": 10
+            "count": 10,
+            "label": "猫毛球"
           },
           {
             "itemId": "cashmere",
-            "count": 1
+            "count": 1,
+            "label": "羊绒布料"
           },
           {
             "itemId": "silk",
-            "count": 20
+            "count": 20,
+            "label": "蚕丝"
           }
         ]
       },
@@ -427,17 +483,20 @@
         "rewards": [
           {
             "itemId": "cashmere",
-            "count": 1
+            "count": 1,
+            "label": "羊绒布料"
           }
         ],
         "dependencies": [
           {
             "itemId": "catHairball",
-            "count": 10
+            "count": 10,
+            "label": "猫毛球"
           },
           {
             "itemId": "wool",
-            "count": 30
+            "count": 30,
+            "label": "羊毛"
           }
         ]
       },
@@ -448,17 +507,20 @@
         "rewards": [
           {
             "itemId": "silkCurtain",
-            "count": 1
+            "count": 1,
+            "label": "遮光窗帘"
           }
         ],
         "dependencies": [
           {
             "itemId": "fluffFabric",
-            "count": 6
+            "count": 6,
+            "label": "绒毛布料"
           },
           {
             "itemId": "catPotion",
-            "count": 1
+            "count": 1,
+            "label": "猫薄荷药剂"
           }
         ]
       },
@@ -469,17 +531,20 @@
         "rewards": [
           {
             "itemId": "silkKittyNest",
-            "count": 1
+            "count": 1,
+            "label": "舒适猫窝"
           }
         ],
         "dependencies": [
           {
             "itemId": "wool",
-            "count": 30
+            "count": 30,
+            "label": "羊毛"
           },
           {
             "itemId": "silkFabric",
-            "count": 20
+            "count": 20,
+            "label": "丝绸布料"
           }
         ]
       }
@@ -496,13 +561,15 @@
         "rewards": [
           {
             "itemId": "book",
-            "count": 1
+            "count": 1,
+            "label": "书"
           }
         ],
         "dependencies": [
           {
             "itemId": "paper",
-            "count": 10
+            "count": 10,
+            "label": "纸"
           }
         ]
       },
@@ -513,7 +580,8 @@
         "rewards": [
           {
             "itemId": "woodPulp",
-            "count": 1
+            "count": 1,
+            "label": "木浆"
           }
         ]
       },
@@ -524,13 +592,15 @@
         "rewards": [
           {
             "itemId": "paper",
-            "count": 1
+            "count": 1,
+            "label": "纸"
           }
         ],
         "dependencies": [
           {
             "itemId": "woodPulp",
-            "count": 4
+            "count": 4,
+            "label": "木浆"
           }
         ]
       },
@@ -541,21 +611,25 @@
         "rewards": [
           {
             "itemId": "catStatue",
-            "count": 1
+            "count": 1,
+            "label": "猫雕像"
           },
           {
             "itemId": "moonlightBell",
-            "count": 0.3
+            "count": 0.3,
+            "label": "月光铃铛"
           }
         ],
         "dependencies": [
           {
             "itemId": "catAntiqueShard",
-            "count": 5
+            "count": 5,
+            "label": "猫咪文物碎片"
           },
           {
             "itemId": "catHairball",
-            "count": 20
+            "count": 20,
+            "label": "猫毛球"
           }
         ]
       },
@@ -566,7 +640,8 @@
         "rewards": [
           {
             "itemId": "paper",
-            "count": 1
+            "count": 1,
+            "label": "纸"
           }
         ]
       },
@@ -577,13 +652,15 @@
         "rewards": [
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ],
         "dependencies": [
           {
             "itemId": "sand",
-            "count": 10
+            "count": 10,
+            "label": "沙子"
           }
         ]
       },
@@ -594,17 +671,20 @@
         "rewards": [
           {
             "itemId": "scratchingPost",
-            "count": 1
+            "count": 1,
+            "label": "猫抓板"
           }
         ],
         "dependencies": [
           {
             "itemId": "catPotion",
-            "count": 2
+            "count": 2,
+            "label": "猫薄荷药剂"
           },
           {
             "itemId": "whiskerFeather",
-            "count": 2
+            "count": 2,
+            "label": "胡须羽毛"
           }
         ]
       },
@@ -615,7 +695,8 @@
         "rewards": [
           {
             "itemId": "pencil",
-            "count": 1
+            "count": 1,
+            "label": "碳笔"
           }
         ]
       },
@@ -626,25 +707,30 @@
         "rewards": [
           {
             "itemId": "autoFeeder",
-            "count": 1
+            "count": 1,
+            "label": "自动喂食器"
           }
         ],
         "dependencies": [
           {
             "itemId": "ancientCatBowl",
-            "count": 1
+            "count": 1,
+            "label": "古代猫碗"
           },
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           },
           {
             "itemId": "iron",
-            "count": 25
+            "count": 25,
+            "label": "铁"
           },
           {
             "itemId": "ancientGear",
-            "count": 10
+            "count": 10,
+            "label": "古代齿轮"
           }
         ]
       }
@@ -661,27 +747,33 @@
         "rewards": [
           {
             "itemId": "catAntiqueShard",
-            "count": 2
+            "count": 2,
+            "label": "猫咪文物碎片"
           },
           {
             "itemId": "treasureMap",
-            "count": 0.8
+            "count": 0.8,
+            "label": "藏宝图"
           },
           {
             "itemId": "catStatue",
-            "count": 1
+            "count": 1,
+            "label": "猫雕像"
           },
           {
             "itemId": "ancientCatBowl",
-            "count": 0.1
+            "count": 0.1,
+            "label": "古代猫碗"
           },
           {
             "itemId": "catPawCoin",
-            "count": 0.01
+            "count": 0.01,
+            "label": "猫爪古钱币"
           },
           {
             "itemId": "catScroll",
-            "count": 0.05
+            "count": 0.05,
+            "label": "猫之卷轴"
           }
         ]
       },
@@ -692,19 +784,23 @@
         "rewards": [
           {
             "itemId": "treasureMap",
-            "count": 0.5
+            "count": 0.5,
+            "label": "藏宝图"
           },
           {
             "itemId": "catHairball",
-            "count": 4
+            "count": 4,
+            "label": "猫毛球"
           },
           {
             "itemId": "berry",
-            "count": 3.2
+            "count": 3.2,
+            "label": "浆果"
           },
           {
             "itemId": "honey",
-            "count": 1.7999999999999998
+            "count": 1.7999999999999998,
+            "label": "蜂蜜"
           }
         ]
       },
@@ -715,29 +811,35 @@
         "rewards": [
           {
             "itemId": "catnipGem",
-            "count": 1
+            "count": 1,
+            "label": "猫薄荷宝石"
           },
           {
             "itemId": "mysticalEssence",
-            "count": 1
+            "count": 1,
+            "label": "神秘精华"
           },
           {
             "itemId": "dreamFeatherBag",
-            "count": 0.1
+            "count": 0.1,
+            "label": "梦羽袋"
           },
           {
             "itemId": "luckyCatCharm",
-            "count": 0.2
+            "count": 0.2,
+            "label": "招财猫护符"
           },
           {
             "itemId": "whiskerFeather",
-            "count": 0.1
+            "count": 0.1,
+            "label": "胡须羽毛"
           }
         ],
         "dependencies": [
           {
             "itemId": "treasureMap",
-            "count": 1
+            "count": 1,
+            "label": "藏宝图"
           }
         ]
       }
@@ -754,33 +856,40 @@
         "rewards": [
           {
             "itemId": "bookOfWorkSkillTreePoint",
-            "count": 1
+            "count": 1,
+            "label": "生活专精手册"
           }
         ],
         "dependencies": [
           {
             "itemId": "book",
-            "count": 1
+            "count": 1,
+            "label": "书"
           },
           {
             "itemId": "pencil",
-            "count": 1
+            "count": 1,
+            "label": "碳笔"
           },
           {
             "itemId": "sewingEssence",
-            "count": 100
+            "count": 100,
+            "label": "织物精华"
           },
           {
             "itemId": "craftingEssence",
-            "count": 100
+            "count": 100,
+            "label": "矿物精华"
           },
           {
             "itemId": "nutrientEssence",
-            "count": 100
+            "count": 100,
+            "label": "营养精华"
           },
           {
             "itemId": "knowledgeEssence",
-            "count": 100
+            "count": 100,
+            "label": "知识精华"
           }
         ],
         "banToKitty": true
@@ -792,49 +901,60 @@
         "rewards": [
           {
             "itemId": "bookOfBattleSkillTreePoint",
-            "count": 1
+            "count": 1,
+            "label": "战斗专精手册"
           }
         ],
         "dependencies": [
           {
             "itemId": "book",
-            "count": 1
+            "count": 1,
+            "label": "书"
           },
           {
             "itemId": "pencil",
-            "count": 1
+            "count": 1,
+            "label": "碳笔"
           },
           {
             "itemId": "knowledgeEssence",
-            "count": 50
+            "count": 50,
+            "label": "知识精华"
           },
           {
             "itemId": "pure_monster_essence_lv1",
-            "count": 50
+            "count": 50,
+            "label": "一级战利品精华"
           },
           {
             "itemId": "pure_monster_essence_lv2",
-            "count": 40
+            "count": 40,
+            "label": "二级战利品精华"
           },
           {
             "itemId": "pure_monster_essence_lv3",
-            "count": 30
+            "count": 30,
+            "label": "三级战利品精华"
           },
           {
             "itemId": "pure_monster_essence_lv4",
-            "count": 15
+            "count": 15,
+            "label": "四级战利品精华"
           },
           {
             "itemId": "experienceOfStrength",
-            "count": 25
+            "count": 25,
+            "label": "战斗经历-力量"
           },
           {
             "itemId": "experienceOfDexterity",
-            "count": 25
+            "count": 25,
+            "label": "战斗经历-敏捷"
           },
           {
             "itemId": "experienceOfIntelligence",
-            "count": 25
+            "count": 25,
+            "label": "战斗经历-智力"
           }
         ],
         "banToKitty": true
@@ -852,21 +972,25 @@
         "rewards": [
           {
             "itemId": "pureEssence",
-            "count": 1
+            "count": 1,
+            "label": "纯净精华"
           }
         ],
         "dependencies": [
           {
             "itemId": "starDust",
-            "count": 10
+            "count": 10,
+            "label": "星尘"
           },
           {
             "itemId": "luminousMoss",
-            "count": 2
+            "count": 2,
+            "label": "夜光苔"
           },
           {
             "itemId": "amberSap",
-            "count": 1
+            "count": 1,
+            "label": "琥珀汁"
           }
         ]
       },
@@ -877,21 +1001,25 @@
         "rewards": [
           {
             "itemId": "mysticalEssence",
-            "count": 1
+            "count": 1,
+            "label": "神秘精华"
           },
           {
             "itemId": "catHairball",
-            "count": 2.4000000000000004
+            "count": 2.4000000000000004,
+            "label": "猫毛球"
           }
         ],
         "dependencies": [
           {
             "itemId": "moonlightBell",
-            "count": 1
+            "count": 1,
+            "label": "月光铃铛"
           },
           {
             "itemId": "herb",
-            "count": 10
+            "count": 10,
+            "label": "草药"
           }
         ]
       },
@@ -902,37 +1030,45 @@
         "rewards": [
           {
             "itemId": "genesisEssence",
-            "count": 1
+            "count": 1,
+            "label": "造物精华"
           }
         ],
         "dependencies": [
           {
             "itemId": "sewingEssence",
-            "count": 4
+            "count": 4,
+            "label": "织物精华"
           },
           {
             "itemId": "craftingEssence",
-            "count": 4
+            "count": 4,
+            "label": "矿物精华"
           },
           {
             "itemId": "nutrientEssence",
-            "count": 4
+            "count": 4,
+            "label": "营养精华"
           },
           {
             "itemId": "knowledgeEssence",
-            "count": 4
+            "count": 4,
+            "label": "知识精华"
           },
           {
             "itemId": "pure_monster_essence_lv1",
-            "count": 4
+            "count": 4,
+            "label": "一级战利品精华"
           },
           {
             "itemId": "mysticalEssence",
-            "count": 4
+            "count": 4,
+            "label": "神秘精华"
           },
           {
             "itemId": "catRelic",
-            "count": 2
+            "count": 2,
+            "label": "猫咪圣物"
           }
         ]
       }
@@ -949,15 +1085,18 @@
         "rewards": [
           {
             "itemId": "herb",
-            "count": 2
+            "count": 2,
+            "label": "草药"
           },
           {
             "itemId": "amberSap",
-            "count": 0.08
+            "count": 0.08,
+            "label": "琥珀汁"
           },
           {
             "itemId": "luckyCatBox",
-            "count": 0.01
+            "count": 0.01,
+            "label": "幸运猫盒"
           }
         ]
       },
@@ -968,11 +1107,13 @@
         "rewards": [
           {
             "itemId": "honey",
-            "count": 3
+            "count": 3,
+            "label": "蜂蜜"
           },
           {
             "itemId": "luckyCatBox",
-            "count": 0.01
+            "count": 0.01,
+            "label": "幸运猫盒"
           }
         ]
       },
@@ -983,23 +1124,28 @@
         "rewards": [
           {
             "itemId": "mushroom",
-            "count": 0.8
+            "count": 0.8,
+            "label": "蘑菇"
           },
           {
             "itemId": "herb",
-            "count": 1.6
+            "count": 1.6,
+            "label": "草药"
           },
           {
             "itemId": "dawnBlossom",
-            "count": 0.1
+            "count": 0.1,
+            "label": "晨露花"
           },
           {
             "itemId": "luminousMoss",
-            "count": 0.1
+            "count": 0.1,
+            "label": "夜光苔"
           },
           {
             "itemId": "windBellHerb",
-            "count": 0.1
+            "count": 0.1,
+            "label": "风铃草"
           }
         ]
       },
@@ -1010,11 +1156,13 @@
         "rewards": [
           {
             "itemId": "bamboo",
-            "count": 3
+            "count": 3,
+            "label": "竹子"
           },
           {
             "itemId": "luckyCatBox",
-            "count": 0.01
+            "count": 0.01,
+            "label": "幸运猫盒"
           }
         ]
       },
@@ -1025,13 +1173,15 @@
         "rewards": [
           {
             "itemId": "cloudCotton",
-            "count": 1
+            "count": 1,
+            "label": "云絮"
           }
         ],
         "dependencies": [
           {
             "itemId": "glassBottles",
-            "count": 1
+            "count": 1,
+            "label": "玻璃瓶"
           }
         ]
       },
@@ -1042,11 +1192,13 @@
         "rewards": [
           {
             "itemId": "sand",
-            "count": 2
+            "count": 2,
+            "label": "沙子"
           },
           {
             "itemId": "luckyCatBox",
-            "count": 0.01
+            "count": 0.01,
+            "label": "幸运猫盒"
           }
         ]
       }
@@ -1063,11 +1215,13 @@
         "rewards": [
           {
             "itemId": "fish",
-            "count": 2
+            "count": 2,
+            "label": "鱼"
           },
           {
             "itemId": "catHairball",
-            "count": 0.2
+            "count": 0.2,
+            "label": "猫毛球"
           }
         ]
       }
@@ -1084,15 +1238,18 @@
         "rewards": [
           {
             "itemId": "gold",
-            "count": 0.30000000000000004
+            "count": 0.30000000000000004,
+            "label": "金币"
           },
           {
             "itemId": "stone",
-            "count": 8
+            "count": 8,
+            "label": "矿石"
           },
           {
             "itemId": "fluffstone",
-            "count": 0.8
+            "count": 0.8,
+            "label": "绒毛岩"
           }
         ]
       },
@@ -1103,15 +1260,18 @@
         "rewards": [
           {
             "itemId": "gold",
-            "count": 0.30000000000000004
+            "count": 0.30000000000000004,
+            "label": "金币"
           },
           {
             "itemId": "stone",
-            "count": 8
+            "count": 8,
+            "label": "矿石"
           },
           {
             "itemId": "fishscaleMineral",
-            "count": 0.8
+            "count": 0.8,
+            "label": "鱼鳞矿"
           }
         ]
       },
@@ -1122,19 +1282,23 @@
         "rewards": [
           {
             "itemId": "gold",
-            "count": 0.05
+            "count": 0.05,
+            "label": "金币"
           },
           {
             "itemId": "stone",
-            "count": 10
+            "count": 10,
+            "label": "矿石"
           },
           {
             "itemId": "iron",
-            "count": 8
+            "count": 8,
+            "label": "铁"
           },
           {
             "itemId": "coal",
-            "count": 8
+            "count": 8,
+            "label": "煤炭"
           }
         ]
       },
@@ -1145,19 +1309,23 @@
         "rewards": [
           {
             "itemId": "gold",
-            "count": 1
+            "count": 1,
+            "label": "金币"
           },
           {
             "itemId": "iron",
-            "count": 6
+            "count": 6,
+            "label": "铁"
           },
           {
             "itemId": "silverOre",
-            "count": 3.2
+            "count": 3.2,
+            "label": "银矿"
           },
           {
             "itemId": "mithrilOre",
-            "count": 2
+            "count": 2,
+            "label": "秘银矿"
           }
         ]
       },
@@ -1168,19 +1336,23 @@
         "rewards": [
           {
             "itemId": "gold",
-            "count": 0.05
+            "count": 0.05,
+            "label": "金币"
           },
           {
             "itemId": "stone",
-            "count": 1
+            "count": 1,
+            "label": "矿石"
           },
           {
             "itemId": "iron",
-            "count": 0.5
+            "count": 0.5,
+            "label": "铁"
           },
           {
             "itemId": "coal",
-            "count": 0.5
+            "count": 0.5,
+            "label": "煤炭"
           }
         ]
       }
@@ -1197,25 +1369,30 @@
         "rewards": [
           {
             "itemId": "catRelic",
-            "count": 1
+            "count": 1,
+            "label": "猫咪圣物"
           },
           {
             "itemId": "catPawCoin",
-            "count": 0.3
+            "count": 0.3,
+            "label": "猫爪古钱币"
           }
         ],
         "dependencies": [
           {
             "itemId": "catStatue",
-            "count": 1
+            "count": 1,
+            "label": "猫雕像"
           },
           {
             "itemId": "moonlightBell",
-            "count": 1
+            "count": 1,
+            "label": "月光铃铛"
           },
           {
             "itemId": "mysticalEssence",
-            "count": 5
+            "count": 5,
+            "label": "神秘精华"
           }
         ]
       },
@@ -1226,21 +1403,25 @@
         "rewards": [
           {
             "itemId": "catPotion",
-            "count": 1
+            "count": 1,
+            "label": "猫薄荷药剂"
           },
           {
             "itemId": "moonlightBell",
-            "count": 0.3
+            "count": 0.3,
+            "label": "月光铃铛"
           }
         ],
         "dependencies": [
           {
             "itemId": "catnipGem",
-            "count": 1
+            "count": 1,
+            "label": "猫薄荷宝石"
           },
           {
             "itemId": "mysticalEssence",
-            "count": 1
+            "count": 1,
+            "label": "神秘精华"
           }
         ]
       }

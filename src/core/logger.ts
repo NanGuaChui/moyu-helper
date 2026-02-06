@@ -36,7 +36,7 @@ async function reloadLogConfig(): Promise<void> {
 }
 
 class Logger {
-  constructor(private tag?: string) { }
+  constructor(private tag?: string) {}
 
   private log(level: LogLevel, ...args: any[]): void {
     if (enabledTypes[level] !== true) return;
