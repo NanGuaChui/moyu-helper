@@ -22,6 +22,7 @@ interface MessageConfig {
   label: string;
   description: string;
   steps: MessageStep[];
+  validate?: () => Promise<void>;
 }
 
 const MESSAGE_CONFIGS: MessageConfig[] = [
@@ -95,6 +96,45 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
       },
     ],
   },
+  {
+    label: '使用生活/战斗专精书',
+    description: '一键使用仓库中所有的生活专精书和战斗专精书',
+    steps: [
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['bookOfWorkSkillTreePoint']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'bookOfWorkSkillTreePoint', multiple: count };
+          }
+          return { skip: true };
+        },
+      },
+      {
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          const count = inventory['bookOfBattleSkillTreePoint']?.count || 0;
+          if (count > 0) {
+            return { itemId: 'bookOfBattleSkillTreePoint', multiple: count };
+          }
+          return { skip: true };
+        },
+      },
+    ],
+    // 自定义校验：至少有一种专精书
+    validate: async () => {
+      const inventory = await dataCache.getAsync('inventory', true);
+      const workCount = inventory['bookOfWorkSkillTreePoint']?.count || 0;
+      const battleCount = inventory['bookOfBattleSkillTreePoint']?.count || 0;
+      if (workCount <= 0 && battleCount <= 0) {
+        throw new Error('没有任何专精书');
+      }
+    },
+  },
 ];
 
 interface ToolbarAction {
@@ -133,6 +173,11 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     setCurrentLabel(config.label);
     toast.progress(`正在执行：${config.label}...`, 'quick-actions');
     try {
+      // 执行前置校验
+      if (startIndex === 0 && config.validate) {
+        await config.validate();
+      }
+
       let result = prevResult;
       for (let i = startIndex; i < config.steps.length; i++) {
         const step = config.steps[i];
