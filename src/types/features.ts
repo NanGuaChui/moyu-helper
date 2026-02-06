@@ -22,11 +22,6 @@ export interface AllocationResult {
     totalPoints: number;
     usedPoints: number;
     remainingPoints: number;
-    totalEfficiency: string;
-    expBoost: string;
-    returnChance: string;
-    extraRewardChance: string;
-    luckyLevel: number;
   };
 }
 

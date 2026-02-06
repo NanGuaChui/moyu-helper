@@ -2,7 +2,8 @@
  * 技能点分配功能模块
  * 包含技能点分配管理器和面板
  *
- * 2026/1/29 参照鱼类自动化养殖技术交流群文件 天赋加点2.js 重写
+ * 2026/1/29  参照鱼类自动化养殖技术交流群文件 天赋加点2.js 重写
+ * 2026/2/5   增加了产出+材料优先的新策略
  */
 
 import { render } from 'preact';
@@ -223,7 +224,7 @@ function calculateTalentAllocation(
       return;
     }
 
-    // 阶段1: 解锁专精效率节点
+    // 阶段1: 解锁基础效率节点
     if (allocation['l_efficiency_basics'] < 2) {
       while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
         if (!tryUpgradeNode('l_efficiency_basics')) {
@@ -250,7 +251,7 @@ function calculateTalentAllocation(
       }
     }
 
-    // 阶段4: 剩余点数按效率优先级分配
+    // 阶段4: 按效率优先分配剩余点数（排除额外产出、额外经验）
     allocateRemainingPointsByEfficiency(['_extraReward', '_extraExp']);
 
     // 阶段5: 如果还有剩余点数，投入经验获取节点
@@ -266,7 +267,7 @@ function calculateTalentAllocation(
       return;
     }
 
-    // 阶段1: 解锁专精效率节点
+    // 阶段1: 解锁基础效率节点
     if (allocation['l_efficiency_basics'] < 2) {
       while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
         if (!tryUpgradeNode('l_efficiency_basics')) {
@@ -293,7 +294,7 @@ function calculateTalentAllocation(
       }
     }
 
-    // 阶段4: 剩余点数按产出效率优先策略
+    // 阶段4: 按效率优先分配剩余点数（排除返还材料、额外经验）
     allocateRemainingPointsByEfficiency(['_returnResource', '_extraExp']);
 
     // 阶段5: 如果还有剩余点数，投入经验获取节点
@@ -445,10 +446,10 @@ function calculateTalentAllocation(
       }
     }
 
-    // 阶段3: 剩余点数按效率优先级分配
+    // 阶段3: 按效率优先分配剩余点数（排除额外经验）
     allocateRemainingPointsByEfficiency(['_extraExp']);
 
-    // 阶段4: 如果还有剩余点数，投入经验获取节点
+    // 阶段4: 如果还有剩余点数，尝试解锁并投入额外经验节点
     if (remainingPoints > 0) {
       tryAllocateExpNode();
     }
@@ -461,7 +462,7 @@ function calculateTalentAllocation(
       return;
     }
 
-    // 阶段1: 解锁额外经验节点
+    // 阶段1: 解锁基础效率节点
     if (allocation['l_efficiency_basics'] < 2) {
       while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
         if (!tryUpgradeNode('l_efficiency_basics')) {
@@ -488,13 +489,13 @@ function calculateTalentAllocation(
       }
     }
 
-    // 阶段4: 剩余点数按产出效率优先策略
-    allocateRemainingPointsByEfficiency(['_returnResource', '_extraExp']);
+    // 阶段4: 按效率优先分配剩余点数（排除额外经验）
+    allocateRemainingPointsByEfficiency(['_extraExp']);
   };
 
   // 产出+材料优先：额外产出和返还材料按1:1平均加点
   const allocateBalanced = () => {
-    // 阶段1: 解锁专精效率节点
+    // 阶段1: 解锁基础效率节点
     if (allocation['l_efficiency_basics'] < 2) {
       while (allocation['l_efficiency_basics'] < 2 && remainingPoints > 0) {
         if (!tryUpgradeNode('l_efficiency_basics')) {
@@ -543,7 +544,7 @@ function calculateTalentAllocation(
       }
     }
 
-    // 阶段3: 剩余点数按效率优先级分配
+    // 阶段4: 剩余点数按效率优先级分配
     allocateRemainingPointsByEfficiency(['_extraExp']);
 
     // 阶段5: 如果还有剩余点数，投入经验获取节点
@@ -619,33 +620,6 @@ function calculateTalentAllocation(
     }
   });
 
-  // 计算效率统计
-  let totalEfficiency = 0;
-
-  if (allocation['l_efficiency_basics']) {
-    totalEfficiency += 0.03 + 0.003 * allocation['l_efficiency_basics'];
-  }
-
-  const focusKey = `l_${specialty}_focus`;
-  if (allocation[focusKey]) {
-    totalEfficiency += 0.01 + 0.005 * allocation[focusKey];
-  }
-
-  const extraRewardKey = `l_${specialty}_extraReward`;
-  if (allocation[extraRewardKey]) {
-    const extraRewardProb = 0.008 + 0.002 * allocation[extraRewardKey];
-    totalEfficiency += extraRewardProb * 0.5;
-  }
-
-  const returnKey = `l_${specialty}_returnResource`;
-  if (allocation[returnKey]) {
-    const returnProb = 0.008 + 0.002 * allocation[returnKey];
-    totalEfficiency += returnProb * 0.33;
-  }
-
-  const expKey = `l_${specialty}_extraExp`;
-  const expBoost = allocation[expKey] ? 0.01 + 0.003 * allocation[expKey] : 0;
-
   // 计算实际消耗的技能点（每次升级的成本累加）
   const usedPoints = Object.entries(result).reduce((sum, [nodeId, targetLevel]) => {
     let cost = 0;
@@ -655,24 +629,12 @@ function calculateTalentAllocation(
     return sum + cost;
   }, 0);
 
-  const returnChance = allocation[returnKey]
-    ? ((0.008 + 0.002 * allocation[returnKey]) * 100).toFixed(2) + '%'
-    : '0.00%';
-  const extraRewardChance = allocation[extraRewardKey]
-    ? ((0.008 + 0.002 * allocation[extraRewardKey]) * 100).toFixed(2) + '%'
-    : '0.00%';
-
   return {
     allocation: result,
     summary: {
       totalPoints,
       usedPoints,
       remainingPoints: totalPoints - usedPoints,
-      totalEfficiency: (totalEfficiency * 100).toFixed(2) + '%',
-      expBoost: (expBoost * 100).toFixed(2) + '%',
-      returnChance,
-      extraRewardChance,
-      luckyLevel: allocation['l_lucky_basics'] || 0,
     },
   };
 }
@@ -711,7 +673,6 @@ class SkillAllocationManager {
       try {
         const unsub = ws.once('skillTree:reset:success', (data) => {
           logger.warn('检测到延迟到达的重置响应', data);
-          // toast.info('检测到延迟到达的重置响应，已记录日志');
           unsub();
         });
         setTimeout(() => unsub(), 5000);
@@ -752,7 +713,6 @@ class SkillAllocationManager {
           const lateEvent = 'skillTree:summary:success';
           const unsub = ws.once(lateEvent, (data) => {
             logger.warn('检测到延迟到达的加点响应', data);
-            toast.info('检测到延迟到达的加点响应，已记录日志');
             unsub();
           });
           setTimeout(() => unsub(), 5000);
@@ -784,24 +744,7 @@ class SkillAllocationManager {
     logger.info(`开始自动加点: 策略=${strategy}, 专精=${specialty}, 幸运优先=${luckyFirst}`);
 
     try {
-      // 先获取技能树摘要,等待响应后再进行后续操作
-      logger.info('获取技能树摘要...');
-      const timeoutMs = 10000;
-      const summaryPromise = ws.requestRaw('skillTree:summary', 'skillTree:summary:success', { treeId });
-      let summaryResponse: any;
-      try {
-        summaryResponse = await Promise.race([
-          summaryPromise,
-          new Promise((_, reject) => setTimeout(() => reject(new Error('获取摘要超时')), timeoutMs)),
-        ]);
-        logger.debug('技能树摘要响应:', summaryResponse);
-      } catch (err: any) {
-        logger.error('获取技能树摘要超时或失败', err);
-        toast.hideProgress('skill-allocation');
-        throw new Error('获取技能树摘要失败');
-      }
-
-      let summary = await this.reset(treeId);
+      const summary = await this.reset(treeId);
 
       // reset 完成后调用回调
       onResetComplete?.();
@@ -1031,46 +974,11 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
         />
       </FormGroup>
 
-      {/* 原有的页面检查逻辑已注释,因为现在通过 WebSocket 通信不需要进入专精页面 */}
-      {/* {isInSkillTreePage() ? (
-        <Button onClick={handleAllocate} disabled={isProcessing}>
-          {isProcessing ? '处理中...' : '开始加点'}
-        </Button>
-      ) : (
-        <Button disabled style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-          请先进入生活专精页面
-        </Button>
-      )} */}
-
       <Button onClick={handleAllocate}>开始加点</Button>
 
-      {/* 原有的进度显示区域已注释,改用顶部 toast 提示 */}
-      {/* {showProgress && (
-        <div
-          style={{
-            padding: '12px',
-            background: '#f8f9fa',
-            borderRadius: '8px',
-            fontSize: '13px',
-            color: '#666',
-            lineHeight: '1.6',
-            whiteSpace: 'pre-line',
-            marginTop: '12px',
-          }}
-        >
-          {progress}
-        </div>
-      )} */}
     </>
   );
 }
-
-// 检查是否在专精页面(已注释,当前不再使用)
-// const isInSkillTreePage = (): boolean => {
-//   const skillTreeTab = document.getElementById('tab-skillTree');
-//   if (!skillTreeTab) return false;
-//   return skillTreeTab.classList.contains('is-active');
-// };
 
 export class SkillAllocationPanel {
   private container: HTMLDivElement | null = null;
