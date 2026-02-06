@@ -359,7 +359,7 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
       </FormGroup>
 
       {preview && (
-        <Card title="材料预览" style={{ minHeight: '60px' }}>
+        <Card title={`材料预览 (总计: ${mult} × ${times} = ${mult * times})`} style={{ minHeight: '60px' }}>
           <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
             {preview.map((p, i) => (
               <div key={i} style={{ color: '#52c41a' }}>

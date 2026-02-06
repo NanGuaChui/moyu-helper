@@ -9,6 +9,7 @@ import { getWsErrorMessage } from '@/utils';
 import { logger } from '@/core/logger';
 import { Modal, Select, Button } from '@/ui/components';
 import { sleep } from '@/utils';
+import { qualityToolbarManager } from './quality-toolbar';
 
 interface MessageStep {
   type: 'auto' | 'select';
@@ -93,6 +94,22 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
         },
       },
     ],
+  },
+];
+
+interface ToolbarAction {
+  label: string;
+  description: string;
+  getLabel: () => string;
+  action: () => void;
+}
+
+const TOOLBAR_ACTIONS: ToolbarAction[] = [
+  {
+    label: '切换工具栏',
+    description: '显示或隐藏生活质量工具栏',
+    getLabel: () => qualityToolbarManager.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏',
+    action: () => qualityToolbarManager.toggle(),
   },
 ];
 
@@ -189,26 +206,52 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     }
   };
 
+  const [, forceUpdate] = useState(0);
+
+  const handleToolbarAction = (action: ToolbarAction) => {
+    action.action();
+    forceUpdate((n) => n + 1);
+  };
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="快捷功能">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
         {!waitingForSelection ? (
-          MESSAGE_CONFIGS.map((config) => (
-            <div key={config.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <Button
-                onClick={() => handleExecute(config)}
-                disabled={quickActions.isRunning}
-                style={{ width: '100%' }}
-              >
-                {quickActions.isRunning && currentLabel === config.label ? '执行中...' : config.label}
-              </Button>
-              <div
-                style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
-              >
-                {config.description}
+          <>
+            {/* 工具栏操作 */}
+            {TOOLBAR_ACTIONS.map((action) => (
+              <div key={action.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Button
+                  onClick={() => handleToolbarAction(action)}
+                  style={{ width: '100%' }}
+                >
+                  {action.getLabel()}
+                </Button>
+                <div
+                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                >
+                  {action.description}
+                </div>
               </div>
-            </div>
-          ))
+            ))}
+            {/* 消息操作 */}
+            {MESSAGE_CONFIGS.map((config) => (
+              <div key={config.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <Button
+                  onClick={() => handleExecute(config)}
+                  disabled={quickActions.isRunning}
+                  style={{ width: '100%' }}
+                >
+                  {quickActions.isRunning && currentLabel === config.label ? '执行中...' : config.label}
+                </Button>
+                <div
+                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                >
+                  {config.description}
+                </div>
+              </div>
+            ))}
+          </>
         ) : (
           <>
             <Select
