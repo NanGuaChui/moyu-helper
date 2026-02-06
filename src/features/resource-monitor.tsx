@@ -4,7 +4,9 @@
  */
 
 import { render } from 'preact';
-import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('ResourceMonitor');
 import { getWsErrorMessage } from '@/utils';
 import type { PanelButton } from '@/types';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
@@ -92,28 +94,30 @@ export function createResourceAlertHTML(
 const BASE_RESOURCES = ['berry', 'fish', 'wood', 'stone', 'coal'] as const;
 const PROGRESS_ID = 'resource-monitor';
 
-class ResourceMonitor {
+class ResourceMonitor extends BaseFeature {
   private resources: Record<string, ResourceConfig>;
   private enabled = false;
   private autoBuyEnabled = false;
   private nameToIdCache: Map<string, string> | null = null;
 
   constructor() {
+    super();
     this.resources = this.flattenCategories(DEFAULT_RESOURCES);
-    void this.init();
-    eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
   }
 
-  private async init(): Promise<void> {
-    try {
-      this.enabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
-      this.autoBuyEnabled = await appConfig.AUTO_BUY_BASE_RESOURCES.get();
-      this.resources = await this.loadResources();
-      logger.success('资源监控器初始化完成');
-    } catch (error) {
-      logger.error('加载资源监控配置失败', error);
-      toast.error('资源监控初始化失败');
-    }
+  protected async onInit(): Promise<void> {
+    this.enabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
+    this.autoBuyEnabled = await appConfig.AUTO_BUY_BASE_RESOURCES.get();
+    this.resources = await this.loadResources();
+    eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
+    logger.success('资源监控器初始化完成');
+  }
+
+  protected async onReload(): Promise<void> {
+    this.enabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
+    this.autoBuyEnabled = await appConfig.AUTO_BUY_BASE_RESOURCES.get();
+    this.resources = await this.loadResources();
+    logger.info('资源监控配置已刷新');
   }
 
   private flattenCategories(categories: ResourceCategory[]): Record<string, ResourceConfig> {
@@ -377,13 +381,6 @@ class ResourceMonitor {
 
   isAutoBuyEnabled(): boolean {
     return this.autoBuyEnabled;
-  }
-
-  async reload(): Promise<void> {
-    this.enabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
-    this.autoBuyEnabled = await appConfig.AUTO_BUY_BASE_RESOURCES.get();
-    this.resources = await this.loadResources();
-    logger.info('资源监控配置已刷新');
   }
 }
 

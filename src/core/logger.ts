@@ -24,25 +24,25 @@ const LOG_CONFIGS: Record<LogLevel, LogConfig> = {
   none: { emoji: '', color: '', method: 'log', priority: 999 },
 };
 
+// 共享的日志配置状态
+let enabledTypes: Record<string, boolean> = {};
+
+function initLoggerEvents(): void {
+  eventBus.on(EVENTS.SETTINGS_UPDATED, reloadLogConfig);
+}
+
+async function reloadLogConfig(): Promise<void> {
+  enabledTypes = await appConfig.LOG_ENABLED_TYPES.get();
+}
+
 class Logger {
-  private enabledTypes: Record<string, boolean> = {};
-
-  constructor() {
-    eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
-  }
-
-  async reload(): Promise<void> {
-    this.enabledTypes = await appConfig.LOG_ENABLED_TYPES.get();
-  }
-
-  private shouldLog(level: LogLevel): boolean {
-    return this.enabledTypes[level] === true;
-  }
+  constructor(private tag?: string) { }
 
   private log(level: LogLevel, ...args: any[]): void {
-    if (!this.shouldLog(level)) return;
+    if (enabledTypes[level] !== true) return;
     const { emoji, color, method } = LOG_CONFIGS[level];
-    console[method](`%c[🐟] ${emoji}`, `color: ${color}; font-weight: bold;`, ...args);
+    const prefix = this.tag ? `[🐟] [${this.tag}] ${emoji}` : `[🐟] ${emoji}`;
+    console[method](`%c${prefix}`, `color: ${color}; font-weight: bold;`, ...args);
   }
 
   debug = (...args: any[]) => this.log('debug', ...args);
@@ -50,6 +50,16 @@ class Logger {
   success = (...args: any[]) => this.log('success', ...args);
   warn = (...args: any[]) => this.log('warn', ...args);
   error = (...args: any[]) => this.log('error', ...args);
+
+  async reload(): Promise<void> {
+    return reloadLogConfig();
+  }
+}
+
+initLoggerEvents();
+
+export function createLogger(tag: string): Logger {
+  return new Logger(tag);
 }
 
 export const logger = new Logger();

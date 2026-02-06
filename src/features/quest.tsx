@@ -3,7 +3,9 @@
  * 自动刷新和执行游戏任务
  */
 
-import { toast, ws, logger, eventBus, EVENTS } from '@/core';
+import { toast, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('Quest');
 import { getWsErrorMessage } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 import { sleep } from '@/utils';
@@ -28,7 +30,7 @@ interface QuestManagerConfig {
   autoSubmit: boolean;
 }
 
-class QuestManager {
+class QuestManager extends BaseFeature {
   private config: QuestManagerConfig = {
     goldLimit: appConfig.QUEST_GOLD_LIMIT.defaultValue,
     selectedTasks: {},
@@ -36,7 +38,7 @@ class QuestManager {
     autoSubmit: appConfig.QUEST_AUTO_SUBMIT.defaultValue,
   };
 
-  async init(): Promise<void> {
+  protected async onInit(): Promise<void> {
     this.config.goldLimit = await appConfig.QUEST_GOLD_LIMIT.get();
     this.config.selectedTasks = await appConfig.QUEST_SELECTED_TASKS.get();
     this.config.autoExecute = await appConfig.QUEST_AUTO_EXECUTE.get();
@@ -46,6 +48,14 @@ class QuestManager {
     if (this.config.autoSubmit) {
       setTimeout(async () => await this.fetchAndCompleteQuests(false), 3000);
     }
+  }
+
+  protected async onReload(): Promise<void> {
+    this.config.goldLimit = await appConfig.QUEST_GOLD_LIMIT.get();
+    this.config.selectedTasks = await appConfig.QUEST_SELECTED_TASKS.get();
+    this.config.autoExecute = await appConfig.QUEST_AUTO_EXECUTE.get();
+    this.config.autoSubmit = await appConfig.QUEST_AUTO_SUBMIT.get();
+    logger.info('任务管理配置已刷新');
   }
 
   private isValidQuest(quest: Quest): boolean {
@@ -208,6 +218,11 @@ class QuestManager {
   }
 
   async refreshCards(): Promise<void> {
+    if (this.isRunning) {
+      toast.warning('任务刷新进行中');
+      return;
+    }
+
     // 首次运行提示
     const isFirstRun = await appConfig.QUEST_FIRST_RUN.get();
     if (isFirstRun) {
@@ -231,6 +246,7 @@ class QuestManager {
   }
 
   private async executeRefresh(): Promise<void> {
+    this._running = true;
     toast.progress('🔄 正在获取任务列表...', 'quest');
 
     try {
@@ -281,6 +297,8 @@ class QuestManager {
       logger.error('任务处理失败', error);
       toast.hideProgress('quest');
       toast.error(getWsErrorMessage(error, '任务处理失败，请稍后重试'));
+    } finally {
+      this._running = false;
     }
   }
 
@@ -294,14 +312,6 @@ class QuestManager {
     this.config.selectedTasks = tasks;
     await appConfig.QUEST_SELECTED_TASKS.set(tasks);
     logger.info('任务选择已更新');
-  }
-
-  async reload(): Promise<void> {
-    this.config.goldLimit = await appConfig.QUEST_GOLD_LIMIT.get();
-    this.config.selectedTasks = await appConfig.QUEST_SELECTED_TASKS.get();
-    this.config.autoExecute = await appConfig.QUEST_AUTO_EXECUTE.get();
-    this.config.autoSubmit = await appConfig.QUEST_AUTO_SUBMIT.get();
-    logger.info('任务管理配置已刷新');
   }
 }
 

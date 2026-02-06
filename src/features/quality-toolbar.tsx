@@ -6,22 +6,30 @@
  * - 通过菜单按钮切换状态
  */
 
-import { logger } from '@/core';
+import { BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('QualityToolbar');
 
 /**
  * 工具栏管理器类
  */
-class QualityToolbarManager {
+class QualityToolbarManager extends BaseFeature {
   private isHidden = false;
   private toolbarContainer: HTMLElement | null = null;
   private originalDisplay: string = '';
 
-  /**
-   * 初始化工具栏管理器，等待DOM元素渲染后自动隐藏
-   */
-  init(): void {
+  protected onInit(): void {
     logger.debug('工具栏管理器已就绪');
     this.toggle();
+  }
+
+  protected onReload(): void {
+    // 工具栏管理器没有配置项需要重载
+  }
+
+  protected onDestroy(): void {
+    this.toolbarContainer = null;
+    this.isHidden = false;
   }
 
 
@@ -99,14 +107,6 @@ class QualityToolbarManager {
    */
   getIsHidden(): boolean {
     return this.isHidden;
-  }
-
-  /**
-   * 清理资源
-   */
-  destroy(): void {
-    this.toolbarContainer = null;
-    this.isHidden = false;
   }
 }
 

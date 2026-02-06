@@ -3,20 +3,19 @@
  * 自动监控饱食度并使用食物
  */
 
-import { logger, toast, dataCache, ws, eventBus, EVENTS } from '@/core';
+import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('SatietyManager');
 import { getWsErrorMessage } from '@/utils';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
 
-class SatietyManager {
-  private isInitialized = false;
+class SatietyManager extends BaseFeature {
   private isChecking = false;
   private enabled = false;
   private foodType: FoodType = 'berry';
 
-  async init(): Promise<void> {
-    if (this.isInitialized) return;
-
+  protected async onInit(): Promise<void> {
     this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
     this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
 
@@ -25,9 +24,13 @@ class SatietyManager {
     });
 
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
-
-    this.isInitialized = true;
     logger.success('饱食度管理器初始化完成');
+  }
+
+  protected async onReload(): Promise<void> {
+    this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
+    this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
+    logger.info('饱食度管理配置已刷新');
   }
 
   private async checkAndUseFood(): Promise<void> {
@@ -69,12 +72,6 @@ class SatietyManager {
 
   getFoodType(): FoodType {
     return this.foodType;
-  }
-
-  async reload(): Promise<void> {
-    this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
-    this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
-    logger.info('饱食度管理配置已刷新');
   }
 }
 

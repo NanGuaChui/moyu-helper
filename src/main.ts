@@ -91,7 +91,6 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   const tavernExpertEnabled = await appConfig.TAVERN_EXPERT_ENABLED.get();
   const quickAlchemyEnabled = await appConfig.QUICK_ALCHEMY_ENABLED.get();
   const quickActionsEnabled = await appConfig.QUICK_ACTIONS_ENABLED.get();
-  const toolbarToggleEnabled = await appConfig.TOOLBAR_TOGGLE_ENABLED.get();
 
   // 技能加点
   if (skillAllocationEnabled) {
@@ -147,15 +146,6 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
     });
   }
 
-  // 工具栏显示/隐藏按钮
-  if (toolbarToggleEnabled) {
-    buttons.push({
-      text: app.toolbar.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏',
-      onClick: () => app.toolbar.toggle(),
-      order: 8,
-    });
-  }
-
   // 动态添加资源监控按钮（仅在启用时显示）
   const resourceButton = app.resources.getButton();
   if (resourceButton) {
@@ -193,7 +183,6 @@ async function checkAndNotifyNoFeatures(): Promise<void> {
     appConfig.AUTO_USE_BERRY_ENABLED.get(),
     appConfig.QUICK_ACTIONS_ENABLED.get(),
     appConfig.QUICK_ALCHEMY_ENABLED.get(),
-    appConfig.TOOLBAR_TOGGLE_ENABLED.get(),
   ]);
 
   if (!featureFlags.some(Boolean)) {
@@ -212,6 +201,7 @@ async function initFeatureModules(): Promise<void> {
   const battleGuardEnabled = await appConfig.BATTLE_GUARD_ENABLED.get();
   const toolbarToggleEnabled = await appConfig.TOOLBAR_TOGGLE_ENABLED.get();
   const questManagerEnabled = await appConfig.QUEST_MANAGER_ENABLED.get();
+  const resourceMonitorEnabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
 
   // 初始化工具栏管理器
   if (toolbarToggleEnabled) {
@@ -226,6 +216,11 @@ async function initFeatureModules(): Promise<void> {
   // 初始化任务管理器
   if (questManagerEnabled) {
     app.quest.init();
+  }
+
+  // 初始化资源监控器
+  if (resourceMonitorEnabled) {
+    app.resources.init();
   }
 
   // 初始化饱食度管理器

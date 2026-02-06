@@ -4,7 +4,9 @@
  */
 
 import * as pako from 'pako';
-import { logger } from './logger';
+import { createLogger } from './logger';
+
+const logger = createLogger('WebSocket');
 import { taskQueue } from '@/utils/task-queue';
 import type { WebSocketMessage, WebSocketEventHandler, WSUserInfo } from '@/types/websocket';
 
@@ -293,9 +295,9 @@ class WebSocketManager {
           const ws = this;
           const wrapped = callback
             ? (event: MessageEvent) => {
-                self.handleIncoming(event.data);
-                callback.call(ws, event);
-              }
+              self.handleIncoming(event.data);
+              callback.call(ws, event);
+            }
             : null;
           msgDescriptor.set!.call(this, wrapped);
         },

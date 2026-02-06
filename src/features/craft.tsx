@@ -7,7 +7,8 @@ import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
 import ITEMS_JSON from '../../scripts/items.json';
-import { logger, toast, ws, dataCache, eventBus } from '@/core';
+import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
+const logger = createLogger('Craft');
 import type { CraftItem, CraftItemCategory } from '@/types';
 import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
 import { debounce, throttle, getWsErrorMessage } from '@/utils';
@@ -31,9 +32,16 @@ if (typeof ITEMS_JSON === 'object' && ITEMS_JSON !== null) {
 
 // ==================== 制造管理器 ====================
 
-class CraftManager {
+class CraftManager extends BaseFeature {
   private categories: CraftItemCategory[] = DEFAULT_CRAFT_ITEMS;
-  private running = false;
+
+  protected onInit(): void {
+    logger.info('制造管理器初始化完成');
+  }
+
+  protected onReload(): void {
+    // 制造管理器没有配置项需要重载
+  }
 
   /** 获取物品中文名称 */
   getItemName(itemId: string): string {
@@ -275,13 +283,12 @@ class CraftManager {
   }
 
   async craftWithDependencies(actionId: string, count: number, clearTasks = true): Promise<void> {
-    if (this.running) {
+    if (this.isRunning) {
       toast.warning('制造任务进行中');
       return;
     }
 
-    this.running = true;
-
+    this._running = true;
     try {
       toast.info('正在计算制造计划...');
       const plan = this.buildPlan(actionId, count);
@@ -339,7 +346,7 @@ class CraftManager {
       toast.error(getWsErrorMessage(error, '制造失败'));
       toast.hideProgress('craft');
     } finally {
-      this.running = false;
+      this._running = false;
     }
   }
 
@@ -351,13 +358,12 @@ class CraftManager {
     count: number,
     clearTasks = true,
   ): Promise<void> {
-    if (this.running) {
+    if (this.isRunning) {
       toast.warning('制造任务进行中');
       return;
     }
 
-    this.running = true;
-
+    this._running = true;
     try {
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
@@ -417,7 +423,7 @@ class CraftManager {
       toast.error(`🐱 ${kittyName}: ${getWsErrorMessage(error, '制造失败')}`);
       toast.hideProgress('craft');
     } finally {
-      this.running = false;
+      this._running = false;
     }
   }
 
@@ -454,6 +460,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [kitties, setKitties] = useState<any[]>([]);
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
+  const [isProcessing, setIsProcessing] = useState(craftManager.isRunning);
 
   const isKittyBanned = useMemo(() => craftManager.isBannedForKitty(selectedItem), [selectedItem]);
 
@@ -480,6 +487,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
 
       setPlayerDefaultTasks(savedPlayerTasks);
       setKittyDefaultTasks(savedKittyTasks);
+      setIsProcessing(craftManager.isRunning);
     };
 
     void loadData();
@@ -695,7 +703,9 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
         </Card>
       )}
 
-      <Button onClick={handleCraft}>开始制造</Button>
+      <Button onClick={handleCraft} disabled={isProcessing}>
+        {isProcessing ? '制造中...' : '开始制造'}
+      </Button>
 
       {kitties.length > 0 && !isKittyBanned && (
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
@@ -705,6 +715,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
               variant="kitty"
               onClick={() => handleKittyCraft(kitty.uuid, kitty.name || `猫咪${index + 1}`, index)}
               style={{ flex: 1 }}
+              disabled={isProcessing}
             >
               🐱 {kitty.name || `猫咪${index + 1}`}
             </Button>

@@ -5,7 +5,9 @@
 
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { logger, toast, ws, dataCache, eventBus } from '@/core';
+import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('TavernExpert');
 import { Modal, Button } from '@/ui/components';
 import { getWsErrorMessage } from '@/utils';
 import type { TavernExpert } from '@/types/game-data';
@@ -50,9 +52,17 @@ interface ExpertStatusInfo {
   expert?: TavernExpert;
 }
 
-class TavernExpertManager {
+class TavernExpertManager extends BaseFeature {
   private loadingExperts: Set<string> = new Set();
   private panelContainer: HTMLDivElement | null = null;
+
+  protected onInit(): void {
+    logger.info('酒馆专家管理器初始化完成');
+  }
+
+  protected onReload(): void {
+    // 酒馆专家管理器没有配置项需要重载
+  }
 
   /**
    * 获取专家类型信息

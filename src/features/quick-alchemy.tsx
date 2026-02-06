@@ -1,6 +1,8 @@
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
-import { logger, toast, ws, dataCache } from '@/core';
+import { toast, ws, dataCache, BaseFeature, createLogger } from '@/core';
+
+const logger = createLogger('Alchemy');
 import { getWsErrorMessage } from '@/utils';
 import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
 import { getResourceDetail, getTAllGameResource } from '@/utils';
@@ -39,15 +41,33 @@ const fetchTagResources = async (tag: string): Promise<string[]> => {
   return filtered;
 };
 
-class AlchemyService {
-  async submit(recipeId: string, inputs: Record<string, { count: number }>, times: number) {
+class AlchemyService extends BaseFeature {
+  protected onInit(): void {
+    logger.info('炼金服务初始化完成');
+  }
+
+  protected onReload(): void {
+    // 炼金服务没有配置项需要重载
+  }
+
+  async submit(recipeId: string, inputs: Record<string, { count: number }>, times: number): Promise<boolean> {
+    if (this.isRunning) {
+      toast.warning('炼金任务进行中');
+      return false;
+    }
+
+    this._running = true;
     try {
       toast.info(`正在提交炼金任务 ${getResourceName(recipeId)} x${times}...`);
       await ws.request('alchemy:auto:create', { input: inputs, times }, 30000);
       toast.success('✅ 炼金任务提交成功！');
+      return true;
     } catch (error) {
       logger.error('炼金失败', error);
       toast.error(getWsErrorMessage(error, '炼金任务提交失败'));
+      return false;
+    } finally {
+      this._running = false;
     }
   }
 }
@@ -67,7 +87,6 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
   const [times, setTimes] = useState(1);
   const [maxTimes, setMaxTimes] = useState(MAX_LIMIT);
   const [preview, setPreview] = useState<{ name: string; required: number; available: number }[] | null>(null);
-  const [submitting, setSubmitting] = useState(false);
   const [recipeOpts, setRecipeOpts] = useState<{ label: string; options: { value: string; label: string }[] }[]>([]);
 
   useEffect(() => {
@@ -282,12 +301,9 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
       }
     }
 
-    setSubmitting(true);
-    try {
-      await alchemyManager.submit(recipe, inputs, times);
+    const success = await alchemyManager.submit(recipe, inputs, times);
+    if (success) {
       onClose();
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -345,7 +361,7 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
       </FormGroup>
 
       {preview && (
-        <Card title="材料预览" style={{ minHeight: '60px' }}>
+        <Card title={`材料预览 (总计: ${mult} × ${times} = ${mult * times})`} style={{ minHeight: '60px' }}>
           <div style={{ fontSize: '13px', lineHeight: '1.6' }}>
             {preview.map((p, i) => (
               <div key={i} style={{ color: '#52c41a' }}>
@@ -357,11 +373,11 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={submitting}>
+        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={alchemyManager.isRunning}>
           取消
         </Button>
-        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={submitting}>
-          {submitting ? '提交中...' : '提交'}
+        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={alchemyManager.isRunning}>
+          {alchemyManager.isRunning ? '提交中...' : '提交'}
         </Button>
       </div>
     </>
