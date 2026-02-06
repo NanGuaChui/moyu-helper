@@ -9,7 +9,7 @@ import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { appConfig } from '@/config/gm-settings';
 import type { SkillAllocationSummary, AllocationResult } from '@/types/features';
-import { ws, logger, toast } from '@/core';
+import { ws, logger, toast, BaseFeature } from '@/core';
 import { sleep } from '@/utils';
 import { Modal, FormGroup, Select, Checkbox, Button } from '@/ui/components';
 
@@ -679,8 +679,16 @@ function calculateTalentAllocation(
 
 // ==================== 技能分配管理器 ====================
 
-class SkillAllocationManager {
+class SkillAllocationManager extends BaseFeature {
   private currentSummary: SkillAllocationSummary | null = null;
+
+  protected onInit(): void {
+    logger.info('技能分配管理器初始化完成');
+  }
+
+  protected onReload(): void {
+    // 技能分配管理器没有配置项需要重载
+  }
 
   async reset(treeId: string = 'life'): Promise<SkillAllocationSummary> {
     logger.info(`重置技能点: ${treeId}`);
@@ -781,6 +789,12 @@ class SkillAllocationManager {
     onProgress?: (remaining: number, total: number, nodeId: string) => void,
     onResetComplete?: () => void,
   ): Promise<AllocationResult | null> {
+    if (this.isRunning) {
+      toast.warning('技能加点进行中');
+      return null;
+    }
+
+    this._running = true;
     logger.info(`开始自动加点: 策略=${strategy}, 专精=${specialty}, 幸运优先=${luckyFirst}`);
 
     try {
@@ -893,6 +907,8 @@ class SkillAllocationManager {
     } catch (error) {
       logger.error('加点失败', error);
       throw error;
+    } finally {
+      this._running = false;
     }
   }
 
@@ -909,6 +925,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
   const [specialty, setSpecialty] = useState('knowledge');
   const [strategy, setStrategy] = useState('产出优先');
   const [luckyFirst, setLuckyFirst] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(skillAllocationManager.isRunning);
 
   // 加载保存的设置
   useEffect(() => {
@@ -917,6 +934,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
         setSpecialty(await appConfig.SKILL_ALLOCATION_SPECIALTY.get());
         setStrategy(await appConfig.SKILL_ALLOCATION_STRATEGY.get());
         setLuckyFirst(await appConfig.SKILL_ALLOCATION_LUCKY_FIRST.get());
+        setIsProcessing(skillAllocationManager.isRunning);
       } catch (error) {
         logger.warn('加载设置失败', error);
       }
@@ -1042,7 +1060,9 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
         </Button>
       )} */}
 
-      <Button onClick={handleAllocate}>开始加点</Button>
+      <Button onClick={handleAllocate} disabled={isProcessing}>
+        {isProcessing ? '加点中...' : '开始加点'}
+      </Button>
 
       {/* 原有的进度显示区域已注释,改用顶部 toast 提示 */}
       {/* {showProgress && (

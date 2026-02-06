@@ -212,6 +212,7 @@ async function initFeatureModules(): Promise<void> {
   const battleGuardEnabled = await appConfig.BATTLE_GUARD_ENABLED.get();
   const toolbarToggleEnabled = await appConfig.TOOLBAR_TOGGLE_ENABLED.get();
   const questManagerEnabled = await appConfig.QUEST_MANAGER_ENABLED.get();
+  const resourceMonitorEnabled = await appConfig.RESOURCE_MONITOR_ENABLED.get();
 
   // 初始化工具栏管理器
   if (toolbarToggleEnabled) {
@@ -226,6 +227,11 @@ async function initFeatureModules(): Promise<void> {
   // 初始化任务管理器
   if (questManagerEnabled) {
     app.quest.init();
+  }
+
+  // 初始化资源监控器
+  if (resourceMonitorEnabled) {
+    app.resources.init();
   }
 
   // 初始化饱食度管理器
