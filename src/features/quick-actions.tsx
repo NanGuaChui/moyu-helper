@@ -95,6 +95,17 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
         },
       },
     ],
+    // 自定义校验：至少有一种宝箱
+    validate: async () => {
+      const inventory = await dataCache.getAsync('inventory');
+      const catBoxCount = inventory['luckyCatBox']?.count || 0;
+      const canCount = inventory['mysteryCan']?.count || 0;
+      const bagCount = inventory['dreamFeatherBag']?.count || 0;
+      const chestCount = inventory['nightmarePrisonChestNew']?.count || 0;
+      if (catBoxCount <= 0 && canCount <= 0 && bagCount <= 0 && chestCount <= 0) {
+        throw new Error('没有任何宝箱');
+      }
+    },
   },
   {
     label: '使用生活/战斗专精书',

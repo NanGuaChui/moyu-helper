@@ -223,25 +223,6 @@ class QuestManager extends BaseFeature {
       return;
     }
 
-    // 首次运行提示
-    const isFirstRun = await appConfig.QUEST_FIRST_RUN.get();
-    if (isFirstRun) {
-      return new Promise((resolve) => {
-        toast.confirm(
-          `<strong>任务自动刷新说明</strong><br><br>
-          • 自动提交已完成的任务<br>
-          • 刷新不符合条件的任务（按任务类型筛选）<br>
-          • 自动去重并添加到执行队列<br><br>
-          <small>可在设置中修改筛选条件</small>`,
-          async () => {
-            await appConfig.QUEST_FIRST_RUN.set(false);
-            await this.executeRefresh();
-            resolve();
-          },
-        );
-      });
-    }
-
     await this.executeRefresh();
   }
 
