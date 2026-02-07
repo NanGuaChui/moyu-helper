@@ -16,11 +16,25 @@ import type { JSX } from 'preact';
 /**
  * 酒馆专家类型定义
  */
-export interface TavernExpertType {
+interface TavernExpertType {
   id: string;
   name: string;
   shortName: string;
   icon: string;
+}
+
+/**
+ * 专家状态类型
+ */
+type ExpertStatus = 'NOT_HIRED' | 'WORKING' | 'PAUSED';
+
+/**
+ * 专家状态信息
+ */
+interface ExpertStatusInfo {
+  type: TavernExpertType;
+  status: ExpertStatus;
+  expert?: TavernExpert;
 }
 
 /**
@@ -37,20 +51,6 @@ export const TAVERN_EXPERT_TYPES: TavernExpertType[] = [
   { id: 'fishingExpert', name: '钓鱼专家猫猫', shortName: '钓鱼', icon: '🎣' },
   { id: 'baseMercenary', name: '见习雇佣兵猫猫', shortName: '雇佣兵', icon: '🪖' },
 ];
-
-/**
- * 专家状态类型
- */
-type ExpertStatus = 'NOT_HIRED' | 'WORKING' | 'PAUSED';
-
-/**
- * 专家状态信息
- */
-interface ExpertStatusInfo {
-  type: TavernExpertType;
-  status: ExpertStatus;
-  expert?: TavernExpert;
-}
 
 class TavernExpertManager extends BaseFeature {
   private loadingExperts: Set<string> = new Set();

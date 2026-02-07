@@ -8,7 +8,7 @@ import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } fro
 
 const logger = createLogger('ResourceMonitor');
 import { getWsErrorMessage } from '@/utils';
-import type { PanelButton } from '@/types';
+import type { PanelButton } from '@/types/panel';
 import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
@@ -23,13 +23,13 @@ export interface ResourceItem {
   type: 'insufficient' | 'excess';
 }
 
-// ==================== 资源提醒组件 ====================
-
-interface ResourceAlertProps {
+export interface ResourceAlertProps {
   insufficientCount: number;
   excessCount: number;
   categories: Array<{ name: string; items: ResourceItem[] }>;
 }
+
+// ==================== 资源提醒组件 ====================
 
 export function ResourceAlert({ insufficientCount, excessCount, categories }: ResourceAlertProps) {
   const title =

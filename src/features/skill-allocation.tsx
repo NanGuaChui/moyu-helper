@@ -9,12 +9,33 @@
 import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { appConfig } from '@/config/gm-settings';
-import type { SkillAllocationSummary, AllocationResult } from '@/types/features';
 import { ws, toast, BaseFeature, createLogger } from '@/core';
 
 const logger = createLogger('SkillAllocation');
 import { sleep } from '@/utils';
 import { Modal, FormGroup, Select, Checkbox, Button } from '@/ui/components';
+
+// ==================== 类型定义 ====================
+
+export interface SkillAllocationSummary {
+  treeId: string;
+  totalEarned: number;
+  totalSpent: number;
+  effectiveSpent: number;
+  available: number;
+  nodeLevels: Record<string, number>;
+  canAllocate: Record<string, boolean>;
+  unmetReasons: Record<string, string[]>;
+}
+
+export interface AllocationResult {
+  allocation: Record<string, number>;
+  summary: {
+    totalPoints: number;
+    usedPoints: number;
+    remainingPoints: number;
+  };
+}
 
 // ==================== 常量 ====================
 
