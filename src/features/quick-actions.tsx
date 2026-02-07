@@ -25,6 +25,39 @@ interface MessageConfig {
   validate?: () => Promise<void>;
 }
 
+/** 批量获取物品数量 */
+async function getItemCounts(itemIds: string[]): Promise<Record<string, number>> {
+  const inventory = await dataCache.getAsync('inventory');
+  const result: Record<string, number> = {};
+  itemIds.forEach(id => {
+    result[id] = inventory[id]?.count || 0;
+  });
+  return result;
+}
+
+/** 创建物品数量验证器工厂函数 */
+function createItemCountValidator(itemIds: string[], errorMessage: string) {
+  return async () => {
+    const counts = await getItemCounts(itemIds);
+    if (itemIds.every(id => counts[id] <= 0)) {
+      throw new Error(errorMessage);
+    }
+  };
+}
+
+/** 使用物品步骤 */
+function useItemStep(itemId: string): MessageStep {
+  return {
+    type: 'auto',
+    event: 'effectAction:useItem',
+    getData: async () => {
+      const inventory = await dataCache.getAsync('inventory');
+      const count = inventory[itemId]?.count || 0;
+      return count > 0 ? { itemId, multiple: count } : { skip: true };
+    },
+  };
+}
+
 const MESSAGE_CONFIGS: MessageConfig[] = [
   {
     label: '清空战利品记录',
@@ -44,107 +77,28 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   {
     label: '一键打开宝箱',
     description: '自动使用仓库中所有的幸运猫盒、神秘罐头、梦羽袋、噩梦宝箱',
+    validate: createItemCountValidator(
+      ['luckyCatBox', 'mysteryCan', 'dreamFeatherBag', 'nightmarePrisonChestNew'],
+      '没有任何宝箱'
+    ),
     steps: [
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['luckyCatBox']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'luckyCatBox', multiple: count };
-          }
-          // 数量为0，返回跳过标记
-          return { skip: true };
-        },
-      },
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['mysteryCan']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'mysteryCan', multiple: count };
-          }
-          return { skip: true };
-        },
-      },
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['dreamFeatherBag']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'dreamFeatherBag', multiple: count };
-          }
-          return { skip: true };
-        },
-      },
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['nightmarePrisonChestNew']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'nightmarePrisonChestNew', multiple: count };
-          }
-          return { skip: true };
-        },
-      },
+      useItemStep('luckyCatBox'),
+      useItemStep('mysteryCan'),
+      useItemStep('dreamFeatherBag'),
+      useItemStep('nightmarePrisonChestNew'),
     ],
-    // 自定义校验：至少有一种宝箱
-    validate: async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const catBoxCount = inventory['luckyCatBox']?.count || 0;
-      const canCount = inventory['mysteryCan']?.count || 0;
-      const bagCount = inventory['dreamFeatherBag']?.count || 0;
-      const chestCount = inventory['nightmarePrisonChestNew']?.count || 0;
-      if (catBoxCount <= 0 && canCount <= 0 && bagCount <= 0 && chestCount <= 0) {
-        throw new Error('没有任何宝箱');
-      }
-    },
   },
   {
     label: '使用生活/战斗专精书',
     description: '一键使用仓库中所有的生活专精书和战斗专精书',
+    validate: createItemCountValidator(
+      ['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'],
+      '没有任何专精书'
+    ),
     steps: [
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['bookOfWorkSkillTreePoint']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'bookOfWorkSkillTreePoint', multiple: count };
-          }
-          return { skip: true };
-        },
-      },
-      {
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          const count = inventory['bookOfBattleSkillTreePoint']?.count || 0;
-          if (count > 0) {
-            return { itemId: 'bookOfBattleSkillTreePoint', multiple: count };
-          }
-          return { skip: true };
-        },
-      },
+      useItemStep('bookOfWorkSkillTreePoint'),
+      useItemStep('bookOfBattleSkillTreePoint'),
     ],
-    // 自定义校验：至少有一种专精书
-    validate: async () => {
-      const inventory = await dataCache.getAsync('inventory', true);
-      const workCount = inventory['bookOfWorkSkillTreePoint']?.count || 0;
-      const battleCount = inventory['bookOfBattleSkillTreePoint']?.count || 0;
-      if (workCount <= 0 && battleCount <= 0) {
-        throw new Error('没有任何专精书');
-      }
-    },
   },
 ];
 

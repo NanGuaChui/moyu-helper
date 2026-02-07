@@ -19,6 +19,35 @@ interface CraftStep {
   count: number;
 }
 
+/** 构建任务数据对象 */
+function buildTaskData(step: CraftStep) {
+  return {
+    actionId: step.actionId,
+    repeatCount: step.count,
+    currentRepeat: 0,
+    createTime: Date.now(),
+  };
+}
+
+/** 添加制造任务到队列的公共函数 */
+async function addTasksToQueue(tasks: CraftStep[], kittyUuid?: string): Promise<void> {
+  for (let i = 0; i < tasks.length; i++) {
+    const step = tasks[i];
+    toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`, 'craft');
+
+    if (kittyUuid) {
+      await ws.request('kitty:addTask', {
+        kittyUuid,
+        task: buildTaskData(step),
+      });
+    } else {
+      const waitPromise = eventBus.waitFor('actionQueueUpdated');
+      await ws.emit('addTaskToQueue', buildTaskData(step));
+      await waitPromise;
+    }
+  }
+}
+
 // ==================== 制造管理器 ====================
 
 class CraftManager extends BaseFeature {
@@ -44,7 +73,7 @@ class CraftManager extends BaseFeature {
         }
       }
     }
-    
+
     // 从 craft-items 的 dependencies 中查找
     for (const category of this.categories) {
       for (const item of category.items) {
@@ -57,7 +86,7 @@ class CraftManager extends BaseFeature {
         }
       }
     }
-    
+
     // 备选：返回 itemId
     return itemId;
   }
@@ -320,20 +349,7 @@ class CraftManager extends BaseFeature {
       }
 
       toast.progress('正在添加制造任务...', 'craft');
-
-      for (let i = 0; i < optimized.length; i++) {
-        const step = optimized[i];
-        toast.progress(`正在添加 ${step.name} ×${step.count} (${i + 1}/${optimized.length})`, 'craft');
-
-        const waitPromise = eventBus.waitFor('actionQueueUpdated');
-        await ws.emit('addTaskToQueue', {
-          actionId: step.actionId,
-          repeatCount: step.count,
-          currentRepeat: 0,
-          createTime: Date.now(),
-        });
-        await waitPromise;
-      }
+      await addTasksToQueue(optimized);
 
       toast.progress('正在添加默认任务...', 'craft');
       const defaultTasks = await appConfig.PLAYER_DEFAULT_TASKS.get();
@@ -396,20 +412,7 @@ class CraftManager extends BaseFeature {
         await this.clearKittyTasks(kittyUuid, kittyName);
       }
 
-      for (let i = 0; i < tasks.length; i++) {
-        const step = tasks[i];
-        toast.progress(`正在为 ${kittyName} 添加 ${step.name} ×${step.count} (${i + 1}/${tasks.length})`, 'craft');
-
-        await ws.request('kitty:addTask', {
-          kittyUuid,
-          task: {
-            actionId: step.actionId,
-            repeatCount: step.count,
-            currentRepeat: 0,
-            createTime: Date.now(),
-          },
-        });
-      }
+      await addTasksToQueue(tasks, kittyUuid);
 
       const defaultTask = await this.getKittyDefaultTask(kittyIndex);
       let addedDefaultTask = false;

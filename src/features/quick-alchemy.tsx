@@ -12,6 +12,43 @@ import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/a
 const MAX_LIMIT = 1000;
 const resourceNameCache = new Map<string, string>();
 
+// 计算材料可用性的公共函数
+function calculateMaxAvailable(
+  inputs: Record<string, { count: number }>,
+  inventory: Record<string, { count: number }>,
+  tagMap: Record<string, string>,
+  essence: string,
+  currentMult: number = 1,
+  maxLimit: number = MAX_LIMIT
+): { maxMult: number; maxTimes: number } {
+  let maxMult = maxLimit;
+
+  // 计算最大倍数
+  for (const [matId, { count }] of Object.entries(inputs)) {
+    let avail = 0;
+    if (isTag(matId)) avail = inventory[tagMap[matId]]?.count || 0;
+    else if (isEssence(matId)) avail = inventory[essence]?.count || 0;
+    else avail = inventory[matId]?.count || 0;
+
+    maxMult = Math.min(maxMult, Math.floor(avail / count), Math.floor(maxLimit / count));
+  }
+  maxMult = Math.max(1, maxMult);
+
+  // 计算最大次数
+  let maxTimes = maxLimit;
+  for (const [matId, { count }] of Object.entries(inputs)) {
+    let avail = 0;
+    if (isTag(matId)) avail = inventory[tagMap[matId]]?.count || 0;
+    else if (isEssence(matId)) avail = inventory[essence]?.count || 0;
+    else avail = inventory[matId]?.count || 0;
+
+    maxTimes = Math.min(maxTimes, Math.floor(avail / (count * currentMult)));
+  }
+  maxTimes = Math.min(Math.max(1, maxTimes), maxLimit);
+
+  return { maxMult, maxTimes };
+}
+
 const getResourceName = (id: string) => {
   if (!resourceNameCache.has(id)) {
     resourceNameCache.set(id, getResourceDetail(id)?.name || id);
@@ -151,25 +188,14 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
         }
       }
 
-      let calcMaxMult = MAX_LIMIT;
-      for (const [matId, { count }] of Object.entries(curr.inputs)) {
-        let avail = 0;
-        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
-        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
-        else avail = inv[matId]?.count || 0;
-        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
-      }
-      calcMaxMult = Math.max(1, calcMaxMult);
-
-      let calcMaxTimes = MAX_LIMIT;
-      for (const [matId, { count }] of Object.entries(curr.inputs)) {
-        let avail = 0;
-        if (isTag(matId)) avail = inv[newTagMap[matId]]?.count || 0;
-        else if (isEssence(matId)) avail = inv[newEssence]?.count || 0;
-        else avail = inv[matId]?.count || 0;
-        calcMaxTimes = Math.min(calcMaxTimes, Math.floor(avail / (count * calcMaxMult)));
-      }
-      calcMaxTimes = Math.min(Math.max(1, calcMaxTimes), MAX_LIMIT);
+      const { maxMult: calcMaxMult, maxTimes: calcMaxTimes } = calculateMaxAvailable(
+        curr.inputs,
+        inv,
+        newTagMap,
+        newEssence,
+        1,
+        MAX_LIMIT
+      );
 
       setEssenceOpts(newEssenceOpts);
       setEssence(newEssence);
@@ -214,34 +240,12 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
     (async () => {
       const inv = await dataCache.getAsync('inventory');
       const curr = recipeData.recipes[recipeIdx];
-      let calcMaxMult = MAX_LIMIT;
 
-      for (const [matId, { count }] of Object.entries(curr.inputs)) {
-        let avail = 0;
-        if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
-        else if (isEssence(matId)) avail = inv[essence]?.count || 0;
-        else avail = inv[matId]?.count || 0;
-        calcMaxMult = Math.min(calcMaxMult, Math.floor(avail / count), Math.floor(MAX_LIMIT / count));
-      }
-      calcMaxMult = Math.max(1, calcMaxMult);
+      const { maxMult: calcMaxMult } = calculateMaxAvailable(curr.inputs, inv, tagMap, essence, 1, MAX_LIMIT);
       setMaxMult(calcMaxMult);
       if (mult > calcMaxMult) setMult(calcMaxMult);
 
-      const calcMaxTimes = Math.min(
-        Math.max(
-          1,
-          Math.min(
-            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
-              let avail = 0;
-              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
-              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
-              else avail = inv[matId]?.count || 0;
-              return Math.floor(avail / (count * (mult > calcMaxMult ? calcMaxMult : mult)));
-            }),
-          ),
-        ),
-        MAX_LIMIT,
-      );
+      const { maxTimes: calcMaxTimes } = calculateMaxAvailable(curr.inputs, inv, tagMap, essence, mult > calcMaxMult ? calcMaxMult : mult, MAX_LIMIT);
       setMaxTimes(calcMaxTimes);
       if (times > calcMaxTimes) setTimes(calcMaxTimes);
     })();
@@ -253,21 +257,7 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
     (async () => {
       const inv = await dataCache.getAsync('inventory');
       const curr = recipeData.recipes[recipeIdx];
-      const calcMaxTimes = Math.min(
-        Math.max(
-          1,
-          Math.min(
-            ...Object.entries(curr.inputs).map(([matId, { count }]) => {
-              let avail = 0;
-              if (isTag(matId)) avail = inv[tagMap[matId]]?.count || 0;
-              else if (isEssence(matId)) avail = inv[essence]?.count || 0;
-              else avail = inv[matId]?.count || 0;
-              return Math.floor(avail / (count * mult));
-            }),
-          ),
-        ),
-        MAX_LIMIT,
-      );
+      const { maxTimes: calcMaxTimes } = calculateMaxAvailable(curr.inputs, inv, tagMap, essence, mult, MAX_LIMIT);
       setMaxTimes(calcMaxTimes);
       setTimes(calcMaxTimes);
     })();
