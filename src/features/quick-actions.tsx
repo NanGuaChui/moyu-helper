@@ -29,7 +29,7 @@ interface MessageConfig {
 async function getItemCounts(itemIds: string[]): Promise<Record<string, number>> {
   const inventory = await dataCache.getAsync('inventory');
   const result: Record<string, number> = {};
-  itemIds.forEach(id => {
+  itemIds.forEach((id) => {
     result[id] = inventory[id]?.count || 0;
   });
   return result;
@@ -39,7 +39,7 @@ async function getItemCounts(itemIds: string[]): Promise<Record<string, number>>
 function createItemCountValidator(itemIds: string[], errorMessage: string) {
   return async () => {
     const counts = await getItemCounts(itemIds);
-    if (itemIds.every(id => counts[id] <= 0)) {
+    if (itemIds.every((id) => counts[id] <= 0)) {
       throw new Error(errorMessage);
     }
   };
@@ -79,7 +79,7 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
     description: '自动使用仓库中所有的幸运猫盒、神秘罐头、梦羽袋、噩梦宝箱',
     validate: createItemCountValidator(
       ['luckyCatBox', 'mysteryCan', 'dreamFeatherBag', 'nightmarePrisonChestNew'],
-      '没有任何宝箱'
+      '没有任何宝箱',
     ),
     steps: [
       useItemStep('luckyCatBox'),
@@ -91,14 +91,8 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   {
     label: '使用生活/战斗专精书',
     description: '一键使用仓库中所有的生活专精书和战斗专精书',
-    validate: createItemCountValidator(
-      ['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'],
-      '没有任何专精书'
-    ),
-    steps: [
-      useItemStep('bookOfWorkSkillTreePoint'),
-      useItemStep('bookOfBattleSkillTreePoint'),
-    ],
+    validate: createItemCountValidator(['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'], '没有任何专精书'),
+    steps: [useItemStep('bookOfWorkSkillTreePoint'), useItemStep('bookOfBattleSkillTreePoint')],
   },
 ];
 
@@ -113,7 +107,7 @@ const TOOLBAR_ACTIONS: ToolbarAction[] = [
   {
     label: '切换工具栏',
     description: '显示或隐藏生活质量工具栏',
-    getLabel: () => qualityToolbarManager.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏',
+    getLabel: () => (qualityToolbarManager.getIsHidden() ? '👁️ 显示工具栏' : '🙈 隐藏工具栏'),
     action: () => qualityToolbarManager.toggle(),
   },
 ];
@@ -176,7 +170,6 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
       }
       logger.success(`[快捷功能] ${config.label} 执行成功`);
       toast.success(`${config.label} 执行成功`);
-      onClose();
     } catch (error) {
       logger.error(`[快捷功能] ${config.label} 执行失败`);
       logger.error(JSON.stringify(error, null, 4));
@@ -200,8 +193,11 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     quickActions.setRunning(true);
     try {
       await executeSteps(config, 0);
+    } catch {
+      // executeSteps 内部已处理错误提示，这里只需确保状态重置
     } finally {
       quickActions.setRunning(false);
+      setCurrentLabel(null);
     }
   };
 
@@ -212,8 +208,11 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     quickActions.setRunning(true);
     try {
       await executeSteps(currentConfig, currentStepIndex + 1);
+    } catch {
+      // executeSteps 内部已处理错误提示，这里只需确保状态重置
     } finally {
       quickActions.setRunning(false);
+      setCurrentLabel(null);
     }
   };
 
@@ -232,14 +231,17 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
             {/* 工具栏操作 */}
             {TOOLBAR_ACTIONS.map((action) => (
               <div key={action.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <Button
-                  onClick={() => handleToolbarAction(action)}
-                  style={{ width: '100%' }}
-                >
+                <Button onClick={() => handleToolbarAction(action)} style={{ width: '100%' }}>
                   {action.getLabel()}
                 </Button>
                 <div
-                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                  style={{
+                    padding: '8px',
+                    background: '#f5f5f5',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#666',
+                  }}
                 >
                   {action.description}
                 </div>
@@ -256,7 +258,13 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
                   {quickActions.isRunning && currentLabel === config.label ? '执行中...' : config.label}
                 </Button>
                 <div
-                  style={{ padding: '8px', background: '#f5f5f5', borderRadius: '4px', fontSize: '12px', color: '#666' }}
+                  style={{
+                    padding: '8px',
+                    background: '#f5f5f5',
+                    borderRadius: '4px',
+                    fontSize: '12px',
+                    color: '#666',
+                  }}
                 >
                   {config.description}
                 </div>
@@ -271,7 +279,11 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
               options={userSelectionOptions}
               placeholder="请选择用户"
             />
-            <Button onClick={handleContinue} disabled={!userSelection || quickActions.isRunning} style={{ width: '100%' }}>
+            <Button
+              onClick={handleContinue}
+              disabled={!userSelection || quickActions.isRunning}
+              style={{ width: '100%' }}
+            >
               {quickActions.isRunning ? '执行中...' : '继续执行'}
             </Button>
           </>
