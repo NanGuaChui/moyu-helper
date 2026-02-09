@@ -9,7 +9,7 @@
 
 import type { PanelButton } from './types';
 import { FloatingPanel, settingsPanel } from './ui';
-import { CraftPanel } from './features/craft';
+import { CraftPanel, craftPanel } from './features/craft';
 import { SkillAllocationPanel } from './features/skill-allocation';
 import { AlchemyPanel } from './features/quick-alchemy';
 import { logger, ws, dataCache, toast } from './core';
@@ -50,7 +50,7 @@ const app: AppModules = {
   resources: resourceMonitor,
   craft: craftManager,
   settings: settingsPanel,
-  craftPanel: new CraftPanel(),
+  craftPanel: craftPanel,
   skillAllocationPanel: new SkillAllocationPanel(),
   alchemyPanel: new AlchemyPanel(),
 };
@@ -114,7 +114,7 @@ const getMenuButtons = async (): Promise<PanelButton[]> => {
   if (craftPanelEnabled) {
     buttons.push({
       text: '🔨 物品制造',
-      onClick: () => app.craftPanel.show(),
+      onClick: () => app.craftPanel.show({}),
       order: 1,
     });
   }

@@ -159,6 +159,13 @@ class CraftManager extends BaseFeature {
     const item = this.findByActionId(actionId);
     return item?.banToKitty === true;
   }
+  /** 根据产出物品ID查找可制造的物品，返回 actionId、label 和单次产出数量 */
+  findCraftableByRewardId(rewardId: string): { actionId: string; label: string; rewardCount: number } | null {
+    const item = this.findByRewardId(rewardId);
+    if (!item) return null;
+    const reward = item.rewards.find((r) => r.itemId === rewardId);
+    return { actionId: item.actionId, label: item.label, rewardCount: reward?.count || 1 };
+  }
 
   /** 检查整个计划列表中是否有任何物品被禁止猫咪制造 */
   hasKittyBannedItem(entries: PlanEntry[]): boolean {
@@ -499,6 +506,7 @@ export const craftManager = new CraftManager();
 
 interface CraftPanelProps {
   onClose: () => void;
+  initialEntries?: PlanEntry[];
 }
 
 /** 计算单个物品的制造详情（依赖步骤 + 缺失资源） */
@@ -525,13 +533,13 @@ async function computePlanDetail(entry: PlanEntry): Promise<PlanItemDetail> {
   return { actionId: entry.actionId, count: entry.count, label, steps: optimized, missingResources: filteredMissing };
 }
 
-function CraftPanelContent({ onClose }: CraftPanelProps) {
+function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
   // 添加区域状态
   const [selectedItem, setSelectedItem] = useState('');
   const [addCount, setAddCount] = useState(1);
 
   // 制造计划列表：Map<actionId, count>
-  const [planEntries, setPlanEntries] = useState<PlanEntry[]>([]);
+  const [planEntries, setPlanEntries] = useState<PlanEntry[]>(initialEntries || []);
 
   // 每个物品的详细制造计划（异步计算）
   const [planDetails, setPlanDetails] = useState<PlanItemDetail[]>([]);
@@ -979,7 +987,16 @@ function PlanItemBlock({ entry, detail, onCountChange, onRemove }: PlanItemBlock
   );
 }
 
-export class CraftPanel extends BasePanel {
-  get title() { return '🔨 物品制造'; }
-  renderContent() { return <CraftPanelContent onClose={() => this.hide()} />; }
+interface CraftPanelShowProps {
+  initialEntries?: PlanEntry[];
 }
+
+export class CraftPanel extends BasePanel<CraftPanelShowProps> {
+  get title() { return '🔨 物品制造'; }
+  renderContent() {
+    return <CraftPanelContent onClose={() => this.hide()} initialEntries={this.props.initialEntries} />;
+  }
+}
+
+/** 共享制造面板实例 */
+export const craftPanel = new CraftPanel();

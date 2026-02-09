@@ -33,9 +33,10 @@ interface ToastProps {
   timeout?: number | false;
   onClose: () => void;
   onConfirm?: () => void;
+  confirmLabel?: string;
 }
 
-function ToastComponent({ type, message, timeout, onClose, onConfirm }: ToastProps) {
+function ToastComponent({ type, message, timeout, onClose, onConfirm, confirmLabel }: ToastProps) {
   const progressRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,7 +66,7 @@ function ToastComponent({ type, message, timeout, onClose, onConfirm }: ToastPro
           <div className="mh-toast-buttons">
             {onConfirm && (
               <button className="mh-toast-btn primary" onClick={handleConfirm}>
-                确定
+                {confirmLabel || '确定'}
               </button>
             )}
             <button className="mh-toast-btn secondary" onClick={onClose}>
@@ -180,7 +181,9 @@ class Toast {
     this.progressToasts.set(id, toast);
   }
 
-  confirm(msg: string, onConfirm?: () => void, timeout?: number): void {
+  confirm(msg: string, onConfirm?: () => void, timeout?: number): void;
+  confirm(msg: string, onConfirm?: () => void, timeout?: number, confirmLabel?: string): void;
+  confirm(msg: string, onConfirm?: () => void, timeout?: number, confirmLabel?: string): void {
     const container = this.getContainer();
     const toast = document.createElement('div');
     render(
@@ -190,6 +193,7 @@ class Toast {
         timeout={timeout || false}
         onClose={() => this.remove(toast)}
         onConfirm={onConfirm}
+        confirmLabel={confirmLabel}
       />,
       toast,
     );
