@@ -181,7 +181,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
   };
 
   const handleExecute = async (config: MessageConfig) => {
-    if (quickActions.isRunning) {
+    if (quickActions.running.value) {
       toast.warning('快捷功能执行中');
       return;
     }
@@ -252,10 +252,10 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
               <div key={config.label} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 <Button
                   onClick={() => handleExecute(config)}
-                  disabled={quickActions.isRunning}
+                  disabled={quickActions.running.value}
                   style={{ width: '100%' }}
                 >
-                  {quickActions.isRunning && currentLabel === config.label ? '执行中...' : config.label}
+                  {quickActions.running.value && currentLabel === config.label ? '执行中...' : config.label}
                 </Button>
                 <div
                   style={{
@@ -281,10 +281,10 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
             />
             <Button
               onClick={handleContinue}
-              disabled={!userSelection || quickActions.isRunning}
+              disabled={!userSelection || quickActions.running.value}
               style={{ width: '100%' }}
             >
-              {quickActions.isRunning ? '执行中...' : '继续执行'}
+              {quickActions.running.value ? '执行中...' : '继续执行'}
             </Button>
           </>
         )}
@@ -306,7 +306,7 @@ class QuickActions extends BaseFeature {
   }
 
   setRunning(value: boolean): void {
-    this._running = value;
+    this._running.value = value;
   }
 
   openModal(): void {

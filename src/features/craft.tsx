@@ -328,7 +328,7 @@ class CraftManager extends BaseFeature {
       return;
     }
 
-    this._running = true;
+    this._running.value = true;
     try {
       toast.info('正在计算制造计划...');
       const plan = this.buildPlan(actionId, count);
@@ -373,7 +373,7 @@ class CraftManager extends BaseFeature {
       toast.error(getWsErrorMessage(error, '制造失败'));
       toast.hideProgress('craft');
     } finally {
-      this._running = false;
+      this._running.value = false;
     }
   }
 
@@ -390,7 +390,7 @@ class CraftManager extends BaseFeature {
       return;
     }
 
-    this._running = true;
+    this._running.value = true;
     try {
       const plan = this.buildPlan(actionId, count);
       if (plan.length === 0) {
@@ -437,7 +437,7 @@ class CraftManager extends BaseFeature {
       toast.error(`🐱 ${kittyName}: ${getWsErrorMessage(error, '制造失败')}`);
       toast.hideProgress('craft');
     } finally {
-      this._running = false;
+      this._running.value = false;
     }
   }
 
@@ -474,7 +474,6 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   const [kitties, setKitties] = useState<any[]>([]);
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
-  const [isProcessing, setIsProcessing] = useState(craftManager.isRunning);
 
   const isKittyBanned = useMemo(() => craftManager.isBannedForKitty(selectedItem), [selectedItem]);
 
@@ -501,7 +500,6 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
 
       setPlayerDefaultTasks(savedPlayerTasks);
       setKittyDefaultTasks(savedKittyTasks);
-      setIsProcessing(craftManager.isRunning);
     };
 
     void loadData();
@@ -717,8 +715,8 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
         </Card>
       )}
 
-      <Button onClick={handleCraft} disabled={isProcessing}>
-        {isProcessing ? '制造中...' : '开始制造'}
+      <Button onClick={handleCraft} disabled={craftManager.running.value}>
+        {craftManager.running.value ? '制造中...' : '开始制造'}
       </Button>
 
       {kitties.length > 0 && !isKittyBanned && (
@@ -729,7 +727,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
               variant="kitty"
               onClick={() => handleKittyCraft(kitty.uuid, kitty.name || `猫咪${index + 1}`, index)}
               style={{ flex: 1 }}
-              disabled={isProcessing}
+              disabled={craftManager.running.value}
             >
               🐱 {kitty.name || `猫咪${index + 1}`}
             </Button>

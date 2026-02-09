@@ -30,6 +30,7 @@
     "vite-plugin-monkey": "^4.0.6"
   },
   "dependencies": {
+    "@preact/signals": "^2.7.0",
     "pako": "^2.1.0",
     "preact": "^10.28.2"
   }

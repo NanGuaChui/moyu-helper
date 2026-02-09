@@ -227,7 +227,7 @@ class QuestManager extends BaseFeature {
   }
 
   private async executeRefresh(): Promise<void> {
-    this._running = true;
+    this._running.value = true;
     toast.progress('🔄 正在获取任务列表...', 'quest');
 
     try {
@@ -279,7 +279,7 @@ class QuestManager extends BaseFeature {
       toast.hideProgress('quest');
       toast.error(getWsErrorMessage(error, '任务处理失败，请稍后重试'));
     } finally {
-      this._running = false;
+      this._running.value = false;
     }
   }
 

@@ -93,7 +93,7 @@ class AlchemyService extends BaseFeature {
       return false;
     }
 
-    this._running = true;
+    this._running.value = true;
     try {
       toast.info(`正在提交炼金任务 ${getResourceName(recipeId)} x${times}...`);
       await ws.request('alchemy:auto:create', { input: inputs, times }, 30000);
@@ -104,7 +104,7 @@ class AlchemyService extends BaseFeature {
       toast.error(getWsErrorMessage(error, '炼金任务提交失败'));
       return false;
     } finally {
-      this._running = false;
+      this._running.value = false;
     }
   }
 }
@@ -363,11 +363,11 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
       )}
 
       <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
-        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={alchemyManager.isRunning}>
+        <Button variant="secondary" onClick={onClose} style={{ flex: 1 }} disabled={alchemyManager.running.value}>
           取消
         </Button>
-        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={alchemyManager.isRunning}>
-          {alchemyManager.isRunning ? '提交中...' : '提交'}
+        <Button onClick={handleSubmit} style={{ flex: 1 }} disabled={alchemyManager.running.value}>
+          {alchemyManager.running.value ? '提交中...' : '提交'}
         </Button>
       </div>
     </>

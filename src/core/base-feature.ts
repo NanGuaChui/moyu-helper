@@ -3,18 +3,25 @@
  * 提供统一的生命周期管理和运行状态控制
  */
 
+import { signal, type Signal } from '@preact/signals';
+
 export abstract class BaseFeature {
   protected _initialized = false;
-  protected _running = false;
+  protected _running: Signal<boolean> = signal(false);
 
   /** 是否已初始化 */
   get isInitialized(): boolean {
     return this._initialized;
   }
 
-  /** 是否正在运行 */
-  get isRunning(): boolean {
+  /** 是否正在运行 (signal) */
+  get running(): Signal<boolean> {
     return this._running;
+  }
+
+  /** 是否正在运行 (普通值，用于非响应式场景) */
+  get isRunning(): boolean {
+    return this._running.value;
   }
 
   // ==================== 必须实现 ====================
@@ -48,7 +55,7 @@ export abstract class BaseFeature {
   /** 销毁 */
   destroy(): void {
     if (!this._initialized) return;
-    if (this._running) this.stop();
+    if (this._running.value) this.stop();
     this.onDestroy?.();
     this._initialized = false;
   }
@@ -60,20 +67,20 @@ export abstract class BaseFeature {
 
   /** 开始执行任务，返回是否成功启动 */
   async start(): Promise<boolean> {
-    if (this._running) return false;
-    this._running = true;
+    if (this._running.value) return false;
+    this._running.value = true;
     try {
       await this.onStart?.();
       return true;
     } finally {
-      this._running = false;
+      this._running.value = false;
     }
   }
 
   /** 停止/取消任务 */
   stop(): void {
-    if (!this._running) return;
+    if (!this._running.value) return;
     this.onStop?.();
-    this._running = false;
+    this._running.value = false;
   }
 }
