@@ -69,9 +69,54 @@ class WebSocketManager {
       return;
     }
 
+    // 先尝试获取已捕获的 WebSocket（由拦截器脚本提供）
+    this.attachCapturedSockets();
+
     this.interceptWebSocket();
     this.initialized = true;
     logger.success('WebSocket 监控初始化完成');
+  }
+
+  /**
+   * 附加到已捕获的 WebSocket 实例
+   */
+  private attachCapturedSockets(): void {
+    const captured = (window as any).__capturedSockets as WebSocket[] | undefined;
+    if (!captured?.length) {
+      logger.debug('未发现已捕获的 WebSocket');
+      return;
+    }
+
+    logger.info(`发现 ${captured.length} 个已捕获的 WebSocket`);
+
+    for (const ws of captured) {
+      logger.debug(`检查 WebSocket: ${ws.url}, readyState: ${ws.readyState}`);
+
+      if (!this.isGameWebSocket(ws)) {
+        logger.debug(`跳过非游戏 WebSocket: ${ws.url}`);
+        continue;
+      }
+
+      this.socket = ws;
+
+      // 监听消息
+      ws.addEventListener('message', (event) => {
+        this.handleIncoming(event.data);
+      });
+
+      // 尝试从已发送的消息中提取用户信息（如果还没有）
+      if (!this.userInfo) {
+        // 监听后续发送的消息来获取用户信息
+        const originalSend = ws.send.bind(ws);
+        ws.send = (data: any) => {
+          this.handleOutgoing(data);
+          return originalSend(data);
+        };
+      }
+
+      logger.success('已附加到现有 WebSocket 连接', ws.url);
+      break;
+    }
   }
 
   /**
@@ -295,9 +340,9 @@ class WebSocketManager {
           const ws = this;
           const wrapped = callback
             ? (event: MessageEvent) => {
-                self.handleIncoming(event.data);
-                callback.call(ws, event);
-              }
+              self.handleIncoming(event.data);
+              callback.call(ws, event);
+            }
             : null;
           msgDescriptor.set!.call(this, wrapped);
         },
@@ -331,7 +376,25 @@ class WebSocketManager {
    * 判断是否为游戏 WebSocket
    */
   private isGameWebSocket(ws: any): ws is WebSocket {
-    return ws instanceof WebSocket && ws.constructor === WebSocket;
+    if (!(ws instanceof WebSocket)) return false;
+
+    // 检查 URL 是否为游戏服务器
+    try {
+      const url = ws.url;
+      if (url && url.includes('moyu-idle.com')) {
+        return true;
+      }
+      // 排除 vite dev server 的 WebSocket
+      if (url && url.includes('127.0.0.1')) {
+        return false;
+      }
+    } catch {
+      // 无法获取 URL，回退到原始判断
+    }
+
+    // 兼容原始 WebSocket 和被拦截器替换后的 WebSocket
+    const OriginalWS = (window as any).__OriginalWebSocket || WebSocket;
+    return ws.constructor === WebSocket || ws.constructor === OriginalWS;
   }
 
   // ==================== 私有方法 - 消息处理 ====================
