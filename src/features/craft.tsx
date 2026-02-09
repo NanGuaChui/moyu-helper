@@ -557,21 +557,13 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
     debouncedUpdatePreview(selectedItem, count);
   }, [selectedItem, count, debouncedUpdatePreview]);
 
-  const handleCountChange = useMemo(
-    () =>
-      debounce((v: string) => {
-        setCount(parseInt(v) || 1);
-      }, 300),
-    [],
-  );
+  const handleCountChange = (v: string) => {
+    setCount(parseInt(v) || 1);
+  };
 
-  const handleQuickAdd = useMemo(
-    () =>
-      throttle((value: number) => {
-        setCount((prev) => prev + value);
-      }, 300),
-    [],
-  );
+  const handleQuickAdd = (value: number) => {
+    setCount((prev) => prev + value);
+  };
 
   const handleCraft = useMemo(
     () =>

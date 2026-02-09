@@ -149,7 +149,7 @@ class FloatingPanel {
     window.addEventListener('resize', throttle(() => {
       this.checkModalMode();
       this.renderMenu();
-    }, 200));
+    }, 500));
   }
 
   private toggle(): void {
