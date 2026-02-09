@@ -16,10 +16,11 @@ const REQUIRED_ACTIONS = [
   'compileBookOfWorkSkillTreePoint',
   'compileBookOfBattleSkillTreePoint',
   'refineGenesisEssence',
+  'craftLuckyCatStatue',
 ];
 const COLLECTION_ACTIONS = ['reading', 'swim', 'charcoalMaking', 'pickRainbowShard'];
 const EXCLUDED_ACTIONS = new Set(['farming', 'farmingRye', 'windBellHerb', 'dawnBlossom']);
-const SPECIAL_CATEGORY_MAPPING = { brewMysticalCatnipPotion: '特殊制造' };
+const SPECIAL_CATEGORY_MAPPING = { craftLuckyCatStatue: '特殊制造', brewMysticalCatnipPotion: '特殊制造' };
 
 // 一级分类定义
 const PRIMARY_CATEGORIES = [
@@ -81,6 +82,22 @@ function loadRawData() {
   }
 
   return eval('(' + match[1] + ')');
+}
+
+// 读取物品名称映射
+function loadItemNames() {
+  const itemsFile = path.join(__dirname, './items.json');
+  const content = fs.readFileSync(itemsFile, 'utf-8');
+  const items = JSON.parse(content);
+
+  const itemNames = {};
+  Object.entries(items).forEach(([itemId, item]) => {
+    if (item.name) {
+      itemNames[itemId] = item.name;
+    }
+  });
+
+  return itemNames;
 }
 
 // 从 defaults.ts 提取目标物品 ID
@@ -241,7 +258,7 @@ function toTreeItem(action) {
 }
 
 // 生成最终数据结构
-function generateFinalData(rawData, normalActionIds, collectionActionIds) {
+function generateFinalData(rawData, normalActionIds, collectionActionIds, itemNames) {
   const actions = Array.from(normalActionIds)
     .filter((id) => rawData[id] && !EXCLUDED_ACTIONS.has(id))
     .map((id) => transformAction(id, rawData[id]));
@@ -270,9 +287,31 @@ function generateFinalData(rawData, normalActionIds, collectionActionIds) {
     categories.unshift({
       value: 'collection',
       label: '收藏',
-      items: collectionActionIds.filter((id) => rawData[id]).map((id) => toTreeItem(transformAction(id, rawData[id]))),
+      items: collectionActionIds
+        .filter((id) => rawData[id])
+        .map((id) => toTreeItem(transformAction(id, rawData[id]), itemNames)),
     });
   }
+
+  // 为所有 rewards 添加 label
+  categories.forEach((category) => {
+    category.items.forEach((item) => {
+      if (item.rewards) {
+        item.rewards.forEach((reward) => {
+          if (itemNames[reward.itemId]) {
+            reward.label = itemNames[reward.itemId];
+          }
+        });
+      }
+      if (item.dependencies) {
+        item.dependencies.forEach((dep) => {
+          if (itemNames[dep.itemId]) {
+            dep.label = itemNames[dep.itemId];
+          }
+        });
+      }
+    });
+  });
 
   return categories;
 }
@@ -297,6 +336,7 @@ function writeOutputFile(data, targetItemCount) {
 // 主流程
 function main() {
   const rawData = loadRawData();
+  const itemNames = loadItemNames();
   const targetItemIds = extractTargetItemIds();
   const producerIndex = buildItemProducerIndex(rawData);
   const optimalActions = findOptimalActions(rawData, targetItemIds, producerIndex);
@@ -304,7 +344,7 @@ function main() {
 
   REQUIRED_ACTIONS.forEach((id) => !EXCLUDED_ACTIONS.has(id) && allActions.add(id));
 
-  const finalData = generateFinalData(rawData, allActions, COLLECTION_ACTIONS);
+  const finalData = generateFinalData(rawData, allActions, COLLECTION_ACTIONS, itemNames);
   writeOutputFile(finalData, targetItemIds.size);
 }
 
