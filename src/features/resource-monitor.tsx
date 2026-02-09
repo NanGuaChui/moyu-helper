@@ -13,6 +13,7 @@ import { DEFAULT_RESOURCES } from '@/config/defaults';
 import type { MonitorType, ResourceConfig, ResourceCategory } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
 import { getTAllGameResource, sleep } from '@/utils';
+import { craftManager, craftPanel } from './craft';
 
 // ==================== 类型定义 ====================
 
@@ -306,11 +307,53 @@ class ResourceMonitor extends BaseFeature {
     const excessCount = items.filter((item) => item.type === 'excess').length;
     const content = createResourceAlertHTML(insufficientCount, excessCount, categorized);
 
+    // 筛选可制造的不足资源
+    const craftableEntries = this.buildCraftableEntries(items);
+
     if (persistent) {
-      toast.confirm(content);
+      if (craftableEntries.length > 0) {
+        toast.confirm(content, () => {
+          craftPanel.show({ initialEntries: craftableEntries });
+        }, undefined, '🔨 制造');
+      } else {
+        toast.confirm(content);
+      }
     } else {
       toast.warning(content, 5000);
     }
+  }
+
+  /** 从不足资源中筛选出可通过制造获得的物品，构建制造计划条目 */
+  private buildCraftableEntries(items: ResourceItem[]): Array<{ actionId: string; count: number }> {
+    if (!this.nameToIdCache) return [];
+
+    const entries: Array<{ actionId: string; count: number }> = [];
+
+    for (const item of items) {
+      if (item.type !== 'insufficient') continue;
+
+      const itemId = this.nameToIdCache.get(item.name);
+      if (!itemId) continue;
+
+      const craftable = craftManager.findCraftableByRewardId(itemId);
+      if (!craftable) continue;
+
+      const needed = item.threshold - item.count;
+      if (needed <= 0) continue;
+
+      // 根据单次产出数量计算需要的制造次数
+      const craftCount = Math.ceil(needed / craftable.rewardCount);
+
+      // 合并相同 actionId 的条目（不同产出可能来自同一配方）
+      const existing = entries.find((e) => e.actionId === craftable.actionId);
+      if (existing) {
+        existing.count = Math.max(existing.count, craftCount);
+      } else {
+        entries.push({ actionId: craftable.actionId, count: craftCount });
+      }
+    }
+
+    return entries;
   }
 
   private categorizeItems(items: ResourceItem[]): Array<{ name: string; items: ResourceItem[] }> {

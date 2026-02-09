@@ -6,7 +6,6 @@
  * 2026/2/5   增加了产出+材料优先的新策略
  */
 
-import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { appConfig } from '@/config/gm-settings';
 import { ws, toast, BaseFeature, createLogger } from '@/core';
