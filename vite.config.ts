@@ -1,49 +1,36 @@
-import { defineConfig, Plugin } from 'vite';
+import { defineConfig } from 'vite';
 import monkey from 'vite-plugin-monkey';
 import preact from '@preact/preset-vite';
 import path from 'path';
 import pkg from './package.json';
 
-// WebSocket 拦截器代码（会被内联到脚本头部）
+// WebSocket 拦截器代码（会被内联到脚本头部，在 document-start 时执行）
 const WS_INTERCEPTOR_CODE = `
-(function(){
-  var sockets=[];
-  var O=window.WebSocket;
-  window.WebSocket=function(u,p){var ws=new O(u,p);sockets.push(ws);window.__capturedSockets=sockets;window.__latestSocket=ws;return ws};
-  window.WebSocket.prototype=O.prototype;
-  window.WebSocket.CONNECTING=O.CONNECTING;
-  window.WebSocket.OPEN=O.OPEN;
-  window.WebSocket.CLOSING=O.CLOSING;
-  window.WebSocket.CLOSED=O.CLOSED;
-  window.__OriginalWebSocket=O;
+(function() {
+  'use strict';
+
+  const sockets = [];
+  const Original = window.WebSocket;
+
+  window.WebSocket = function(url, protocols) {
+    const ws = new Original(url, protocols);
+    sockets.push(ws);
+    window.__capturedSockets = sockets;
+    window.__latestSocket = ws;
+    console.log('[WS拦截器] 捕获:', url);
+    return ws;
+  };
+
+  window.WebSocket.prototype = Original.prototype;
+  window.WebSocket.CONNECTING = Original.CONNECTING;
+  window.WebSocket.OPEN = Original.OPEN;
+  window.WebSocket.CLOSING = Original.CLOSING;
+  window.WebSocket.CLOSED = Original.CLOSED;
+  window.__OriginalWebSocket = Original;
+
+  console.log('[WS拦截器] 已就绪');
 })();
 `;
-
-// 自定义插件：在打包后注入 WebSocket 拦截器到脚本头部
-function injectWsInterceptor(): Plugin {
-  return {
-    name: 'inject-ws-interceptor',
-    apply: 'build',
-    generateBundle(_, bundle) {
-      for (const fileName in bundle) {
-        if (fileName.endsWith('.user.js')) {
-          const chunk = bundle[fileName];
-          if (chunk.type === 'chunk') {
-            // 找到 ==UserScript== 块的结束位置
-            const headerEnd = chunk.code.indexOf('==/UserScript==');
-            if (headerEnd !== -1) {
-              const insertPos = chunk.code.indexOf('\n', headerEnd) + 1;
-              chunk.code =
-                chunk.code.slice(0, insertPos) +
-                WS_INTERCEPTOR_CODE +
-                chunk.code.slice(insertPos);
-            }
-          }
-        }
-      }
-    },
-  };
-}
 
 export default defineConfig({
   server: {
@@ -70,11 +57,18 @@ export default defineConfig({
         downloadURL: 'https://github.com/NanGuaChui/moyu-helper/releases/latest/download/moyu-helper.user.js',
         grant: ['unsafeWindow', 'GM.getValue', 'GM.setValue', 'GM_addStyle'],
       },
+      // 在开发模式下，将 WS 拦截器代码注入到 userscript 注释之后
+      generate: ({ userscript, mode }) => {
+        if (mode === 'serve') {
+          // 开发模式：在 userscript 注释后注入拦截器代码
+          return `${userscript}\n${WS_INTERCEPTOR_CODE}\n`;
+        }
+        return userscript;
+      },
       server: {
         mountGmApi: true,
       },
     }),
-    injectWsInterceptor(),
   ],
   build: {
     minify: 'esbuild',
