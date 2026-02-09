@@ -1,10 +1,10 @@
-import { render } from 'preact';
 import { useState, useEffect } from 'preact/hooks';
 import { toast, ws, dataCache, BaseFeature, createLogger } from '@/core';
 
 const logger = createLogger('Alchemy');
 import { getWsErrorMessage } from '@/utils';
-import { Modal, Card, FormGroup, Select, Button, Slider } from '@/ui/components';
+import { Card, FormGroup, Select, Button, Slider } from '@/ui/components';
+import { BasePanel } from '@/ui/base-panel';
 import { getResourceDetail, getTAllGameResource } from '@/utils';
 import ESSENCE_CLASSIFICATION from '@/config/monster-essence-classification.json';
 import { ALCHEMY_RECIPES, ESSENCE_LEVEL_MAP, type AlchemyItem } from '@/config/alchemy-recipes';
@@ -374,30 +374,7 @@ const AlchemyForm = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-export class AlchemyPanel {
-  private container: HTMLDivElement | null = null;
-  private isOpen = false;
-
-  show() {
-    if (this.isOpen) return;
-    this.isOpen = true;
-
-    if (!this.container) {
-      this.container = document.createElement('div');
-      document.body.appendChild(this.container);
-    }
-
-    render(
-      <Modal isOpen={true} onClose={() => this.hide()} title="⚗️ 快速炼金">
-        <AlchemyForm onClose={() => this.hide()} />
-      </Modal>,
-      this.container,
-    );
-  }
-
-  hide() {
-    if (!this.isOpen) return;
-    this.isOpen = false;
-    if (this.container) render(null, this.container);
-  }
+export class AlchemyPanel extends BasePanel {
+  get title() { return '⚗️ 快速炼金'; }
+  renderContent() { return <AlchemyForm onClose={() => this.hide()} />; }
 }

@@ -3,13 +3,13 @@
  * 包含制造管理器和制造面板
  */
 
-import { render } from 'preact';
 import { useState, useEffect, useMemo } from 'preact/hooks';
 import DEFAULT_CRAFT_ITEMS from '@/config/craft-items.json';
 import { toast, ws, dataCache, eventBus, BaseFeature, createLogger } from '@/core';
 const logger = createLogger('Craft');
 import type { CraftItem, CraftItemCategory } from '@/types';
-import { Modal, Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
+import { Card, FormGroup, Select, Input, Checkbox, Button, Row } from '@/ui/components';
+import { BasePanel } from '@/ui/base-panel';
 import { debounce, throttle, getWsErrorMessage } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
@@ -787,33 +787,7 @@ function CraftPanelContent({ onClose }: CraftPanelProps) {
   );
 }
 
-export class CraftPanel {
-  private container: HTMLDivElement | null = null;
-  private isOpen = false;
-
-  show(): void {
-    if (this.isOpen) return;
-    this.isOpen = true;
-
-    if (!this.container) {
-      this.container = document.createElement('div');
-      document.body.appendChild(this.container);
-    }
-
-    render(
-      <Modal isOpen={true} onClose={() => this.hide()} title="🔨 物品制造">
-        <CraftPanelContent onClose={() => this.hide()} />
-      </Modal>,
-      this.container,
-    );
-  }
-
-  hide(): void {
-    if (!this.isOpen) return;
-    this.isOpen = false;
-
-    if (this.container) {
-      render(null, this.container);
-    }
-  }
+export class CraftPanel extends BasePanel {
+  get title() { return '🔨 物品制造'; }
+  renderContent() { return <CraftPanelContent onClose={() => this.hide()} />; }
 }

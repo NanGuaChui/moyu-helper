@@ -13,7 +13,8 @@ import { ws, toast, BaseFeature, createLogger } from '@/core';
 
 const logger = createLogger('SkillAllocation');
 import { sleep } from '@/utils';
-import { Modal, FormGroup, Select, Checkbox, Button } from '@/ui/components';
+import { FormGroup, Select, Checkbox, Button } from '@/ui/components';
+import { BasePanel } from '@/ui/base-panel';
 
 // ==================== 类型定义 ====================
 
@@ -1021,35 +1022,7 @@ function SkillAllocationPanelContent({ onClose }: { onClose: () => void }) {
   );
 }
 
-export class SkillAllocationPanel {
-  private container: HTMLDivElement | null = null;
-  private isOpen = false;
-
-  show(): void {
-    if (this.isOpen) return;
-    this.isOpen = true;
-
-    if (!this.container) {
-      this.container = document.createElement('div');
-      document.body.appendChild(this.container);
-    }
-
-    render(
-      <Modal isOpen={true} onClose={() => this.hide()} title="🌳 生活专精加点">
-        <SkillAllocationPanelContent onClose={() => this.hide()} />
-      </Modal>,
-      this.container,
-    );
-  }
-
-  hide(): void {
-    if (!this.isOpen) return;
-    this.isOpen = false;
-
-    if (this.container) {
-      render(null, this.container);
-      this.container.remove();
-      this.container = null;
-    }
-  }
+export class SkillAllocationPanel extends BasePanel {
+  get title() { return '🌳 生活专精加点'; }
+  renderContent() { return <SkillAllocationPanelContent onClose={() => this.hide()} />; }
 }
