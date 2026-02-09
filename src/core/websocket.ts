@@ -375,7 +375,7 @@ class WebSocketManager {
   /**
    * 判断是否为游戏 WebSocket
    */
-  private isGameWebSocket(ws: any): ws is WebSocket {
+  private isGameWebSocket(ws: WebSocket): boolean {
     if (!(ws instanceof WebSocket)) return false;
 
     // 检查 URL 是否为游戏服务器
