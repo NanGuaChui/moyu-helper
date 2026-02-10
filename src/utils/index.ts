@@ -39,3 +39,15 @@ export function getWsErrorMessage(error: unknown, fallback = '操作失败，请
   if (errorMessage && typeof errorMessage === 'string') return errorMessage;
   return fallback;
 }
+
+/** 等待指定 DOM 元素出现（轮询方式） */
+export function waitForElement(selector: string, interval = 500): Promise<Element> {
+  return new Promise((resolve) => {
+    const check = () => {
+      const el = document.querySelector(selector);
+      if (el) resolve(el);
+      else setTimeout(check, interval);
+    };
+    check();
+  });
+}

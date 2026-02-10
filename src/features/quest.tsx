@@ -208,12 +208,13 @@ class QuestManager extends BaseFeature {
       toast.hideProgress('quest');
     } else {
       toast.hideProgress('quest');
-      toast.confirm(`任务刷新完成，共 ${uniqueQuests.length} 个任务待执行，是否立即执行？`, async () => {
+      const confirmed = await toast.confirm(`任务刷新完成，共 ${uniqueQuests.length} 个任务待执行，是否立即执行？`);
+      if (confirmed) {
         await this.startQuests(uniqueQuests, (index, total) => {
           toast.progress(`⚡ 正在添加任务 [${index}/${total}]`, 'quest');
         });
         toast.hideProgress('quest');
-      });
+      }
     }
   }
 

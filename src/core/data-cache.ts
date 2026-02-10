@@ -53,6 +53,9 @@ class DataCacheManager {
     tavern: null,
   };
 
+  /** 已学习技能ID（衍生自 characterInitData，不参与缓存等待机制） */
+  private learnedSkillIds: Set<string> | null = null;
+
   /** 等待中的 Promise 解析器队列 */
   private pendingResolvers = new Map<CacheKey, PendingResolver[]>();
 
@@ -74,7 +77,7 @@ class DataCacheManager {
   private setupListeners(): void {
     // 初始化数据
     ws.once('characterInitData', (data) => {
-      const { kittyInfo, quest, inventory, tavern } = data.payload.data.data;
+      const { kittyInfo, quest, inventory, tavern, skills } = data.payload.data.data;
       this.cache.userInfo = { kittyInfo, quest };
       this.notifyDataReady('userInfo');
 
@@ -85,6 +88,12 @@ class DataCacheManager {
       if (tavern) {
         this.cache.tavern = tavern;
         this.notifyDataReady('tavern');
+      }
+      if (skills) {
+        this.learnedSkillIds = new Set(
+          (skills as Array<{ skillId: string }>).map((s) => s.skillId),
+        );
+        logger.info(`已缓存 ${this.learnedSkillIds.size} 个已学习技能`);
       }
     });
 
@@ -117,6 +126,11 @@ class DataCacheManager {
   /** 获取物品数量 */
   getItemCount(itemId: string): number {
     return this.cache.inventory?.[itemId]?.count || 0;
+  }
+
+  /** 获取已学习的技能ID集合 */
+  getLearnedSkillIds(): ReadonlySet<string> | null {
+    return this.learnedSkillIds;
   }
 
   /** 异步获取缓存（等待数据加载） */

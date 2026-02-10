@@ -301,7 +301,7 @@ class ResourceMonitor extends BaseFeature {
     return hasBought;
   }
 
-  private showAlert(items: ResourceItem[], persistent: boolean = true): void {
+  private async showAlert(items: ResourceItem[], persistent: boolean = true): Promise<void> {
     const categorized = this.categorizeItems(items);
     const insufficientCount = items.filter((item) => item.type === 'insufficient').length;
     const excessCount = items.filter((item) => item.type === 'excess').length;
@@ -312,9 +312,10 @@ class ResourceMonitor extends BaseFeature {
 
     if (persistent) {
       if (craftableEntries.length > 0) {
-        toast.confirm(content, () => {
+        const confirmed = await toast.confirm(content, undefined, '🔨 制造');
+        if (confirmed) {
           craftPanel.show({ initialEntries: craftableEntries });
-        }, undefined, '🔨 制造');
+        }
       } else {
         toast.confirm(content);
       }

@@ -19,6 +19,14 @@ interface CraftStep {
   count: number;
 }
 
+/** 缺失资源信息 */
+interface MissingResource {
+  itemId: string;
+  label: string;
+  need: number;
+  stock: number;
+}
+
 /** 制造计划条目 */
 interface PlanEntry {
   actionId: string;
@@ -31,7 +39,7 @@ interface PlanItemDetail {
   count: number;
   label: string;
   steps: CraftStep[];
-  missingResources: Array<{ itemId: string; need: number; stock: number }>;
+  missingResources: MissingResource[];
 }
 
 /** 构建任务数据对象 */
@@ -75,36 +83,6 @@ class CraftManager extends BaseFeature {
 
   protected onReload(): void {
     // 制造管理器没有配置项需要重载
-  }
-
-  /** 获取物品中文名称 */
-  getItemName(itemId: string): string {
-    // 从 craft-items 的 rewards 中查找
-    for (const category of this.categories) {
-      for (const item of category.items) {
-        for (const reward of item.rewards) {
-          if (reward.itemId === itemId && reward.label) {
-            return reward.label;
-          }
-        }
-      }
-    }
-
-    // 从 craft-items 的 dependencies 中查找
-    for (const category of this.categories) {
-      for (const item of category.items) {
-        if (item.dependencies) {
-          for (const dep of item.dependencies) {
-            if (dep.itemId === itemId && dep.label) {
-              return dep.label;
-            }
-          }
-        }
-      }
-    }
-
-    // 备选：返回 itemId
-    return itemId;
   }
 
   /** 获取物品标签名 */
@@ -243,12 +221,12 @@ class CraftManager extends BaseFeature {
 
   async optimizePlan(plan: CraftStep[], targetActionId: string): Promise<{
     optimized: CraftStep[];
-    missingResources: Array<{ itemId: string; need: number; stock: number }>;
+    missingResources: MissingResource[];
   }> {
     try {
       const optimized: CraftStep[] = [];
       const resourceNeeds = new Map<string, number>();
-      const missingResources: Array<{ itemId: string; need: number; stock: number }> = [];
+      const missingResources: MissingResource[] = [];
 
       for (let i = plan.length - 1; i >= 0; i--) {
         const step = plan[i];
@@ -273,7 +251,7 @@ class CraftManager extends BaseFeature {
                 if (existing) {
                   existing.need = Math.max(existing.need, currentNeed);
                 } else {
-                  missingResources.push({ itemId: dep.itemId, need: currentNeed, stock });
+                  missingResources.push({ itemId: dep.itemId, label: dep.label || dep.itemId, need: currentNeed, stock });
                 }
               }
             }
@@ -312,7 +290,7 @@ class CraftManager extends BaseFeature {
               if (existing) {
                 existing.need = Math.max(existing.need, currentNeed);
               } else {
-                missingResources.push({ itemId: dep.itemId, need: currentNeed, stock });
+                missingResources.push({ itemId: dep.itemId, label: dep.label || dep.itemId, need: currentNeed, stock });
               }
             }
           }
@@ -978,7 +956,7 @@ function PlanItemBlock({ entry, detail, onCountChange, onRemove }: PlanItemBlock
         <div style={ITEM_BLOCK_STYLE.missing}>
           {detail.missingResources.map((m) => (
             <div key={m.itemId}>
-              ⚠️ {craftManager.getItemName(m.itemId)}: 需要 {m.need}, 库存 {m.stock}
+              ⚠️ {m.label}: 需要 {m.need}, 库存 {m.stock}
             </div>
           ))}
         </div>
