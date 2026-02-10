@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useState } from 'preact/hooks';
 import { ws, toast, dataCache, BaseFeature, createLogger } from '@/core';
-import { getWsErrorMessage, sleep } from '@/utils';
+import { getWsErrorMessage, sleep, getResourceDetail } from '@/utils';
 import { Modal, Select, Button } from '@/ui/components';
 import { qualityToolbarManager } from './quality-toolbar';
 
@@ -53,10 +53,39 @@ function useItemStep(itemId: string): MessageStep {
     getData: async () => {
       const inventory = await dataCache.getAsync('inventory');
       const count = inventory[itemId]?.count || 0;
-      return count > 0 ? { itemId, multiple: count } : { skip: true };
+      if (count > 0) {
+        // 使用后将本地库存置0，避免缓存过期导致重复使用
+        inventory[itemId].count = 0;
+        return { itemId, multiple: count };
+      }
+      return { skip: true };
     },
   };
 }
+
+const SKILL_BOOK_SUFFIX = 'SkillBook';
+const SKILL_BOOK_SUFFIX_LEN = SKILL_BOOK_SUFFIX.length;
+
+/** 从仓库中筛选出未学习的技能书 */
+function getUnlearnedSkillBooks(
+  inventory: Awaited<ReturnType<typeof dataCache.getAsync<'inventory'>>>,
+): Array<{ itemId: string; skillId: string }> {
+  const learnedSkills = dataCache.getLearnedSkillIds();
+  if (!learnedSkills) return [];
+
+  const result: Array<{ itemId: string; skillId: string }> = [];
+  for (const itemId in inventory) {
+    if (!itemId.endsWith(SKILL_BOOK_SUFFIX)) continue;
+    const skillId = itemId.slice(0, -SKILL_BOOK_SUFFIX_LEN);
+    if (!learnedSkills.has(skillId) && inventory[itemId].count > 0) {
+      result.push({ itemId, skillId });
+    }
+  }
+  return result;
+}
+
+/** 缓存动态生成的技能书步骤，供 steps 引用 */
+let pendingSkillBookSteps: MessageStep[] = [];
 
 const MESSAGE_CONFIGS: MessageConfig[] = [
   {
@@ -93,6 +122,36 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
     description: '一键使用仓库中所有的生活专精书和战斗专精书',
     validate: createItemCountValidator(['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'], '没有任何专精书'),
     steps: [useItemStep('bookOfWorkSkillTreePoint'), useItemStep('bookOfBattleSkillTreePoint')],
+  },
+  {
+    label: '使用未学习技能书',
+    description: '检查仓库中已有但未学习的技能书，确认后一键使用',
+    validate: async () => {
+      const inventory = await dataCache.getAsync('inventory');
+      const books = getUnlearnedSkillBooks(inventory);
+      if (books.length === 0) {
+        throw new Error('没有未学习的技能书');
+      }
+      const bookList = books.map((b) => getResourceDetail(b.itemId)?.name || b.itemId).join('<br>');
+      if (!await toast.confirm(`发现 ${books.length} 本未学习的技能书：<br><br>${bookList}<br><br>确认使用？`)) {
+        throw new Error('已取消');
+      }
+      // 动态生成 steps 并缓存，技能书每种只需使用一本
+      pendingSkillBookSteps = books.map((b): MessageStep => ({
+        type: 'auto',
+        event: 'effectAction:useItem',
+        getData: async () => {
+          const inventory = await dataCache.getAsync('inventory');
+          if (inventory[b.itemId]) {
+            inventory[b.itemId].count = 0;
+          }
+          return { itemId: b.itemId, multiple: 1 };
+        },
+      }));
+    },
+    get steps() {
+      return pendingSkillBookSteps;
+    },
   },
 ];
 

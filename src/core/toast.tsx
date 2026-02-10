@@ -55,7 +55,6 @@ function ToastComponent({ type, message, timeout, onClose, onConfirm, confirmLab
 
   const handleConfirm = () => {
     onConfirm?.();
-    onClose();
   };
 
   return (
@@ -181,25 +180,34 @@ class Toast {
     this.progressToasts.set(id, toast);
   }
 
-  confirm(msg: string, onConfirm?: () => void, timeout?: number): void;
-  confirm(msg: string, onConfirm?: () => void, timeout?: number, confirmLabel?: string): void;
-  confirm(msg: string, onConfirm?: () => void, timeout?: number, confirmLabel?: string): void {
-    const container = this.getContainer();
-    const toast = document.createElement('div');
-    render(
-      <ToastComponent
-        type="confirm"
-        message={msg}
-        timeout={timeout || false}
-        onClose={() => this.remove(toast)}
-        onConfirm={onConfirm}
-        confirmLabel={confirmLabel}
-      />,
-      toast,
-    );
+  confirm(msg: string, timeout?: number, confirmLabel?: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const container = this.getContainer();
+      const toast = document.createElement('div');
 
-    container.appendChild(toast);
-    this.toastCount++;
+      const close = () => this.remove(toast);
+
+      render(
+        <ToastComponent
+          type="confirm"
+          message={msg}
+          timeout={timeout || false}
+          onClose={() => {
+            close();
+            resolve(false);
+          }}
+          onConfirm={() => {
+            close();
+            resolve(true);
+          }}
+          confirmLabel={confirmLabel}
+        />,
+        toast,
+      );
+
+      container.appendChild(toast);
+      this.toastCount++;
+    });
   }
 
   hideProgress(id: string = DEFAULT_PROGRESS_ID): void {
