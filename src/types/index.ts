@@ -5,6 +5,7 @@
 export * from './panel';
 export * from './websocket';
 export * from './game-data';
+export * from './battle-stats';
 
 /**
  * 物品制造依赖配置
