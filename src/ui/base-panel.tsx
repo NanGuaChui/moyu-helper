@@ -33,6 +33,8 @@ export abstract class BasePanel<P = {}> {
 
         if (this.container) {
             render(null, this.container);
+            this.container.remove();
+            this.container = null;
         }
     }
 

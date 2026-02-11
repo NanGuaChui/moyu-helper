@@ -13,6 +13,12 @@ import { BasePanel } from '@/ui/base-panel';
 import { debounce, throttle, getWsErrorMessage } from '@/utils';
 import { appConfig } from '@/config/gm-settings';
 
+/** 制造模块常量 */
+const CRAFT_CONSTANTS = {
+  /** 默认任务的重复次数（近似无限） */
+  DEFAULT_TASK_REPEAT_COUNT: 999999,
+} as const;
+
 interface CraftStep {
   name: string;
   actionId: string;
@@ -77,12 +83,33 @@ async function addTasksToQueue(tasks: CraftStep[], kittyUuid?: string): Promise<
 class CraftManager extends BaseFeature {
   private categories: CraftItemCategory[] = DEFAULT_CRAFT_ITEMS;
 
+  // 查找索引缓存
+  private actionIdIndex = new Map<string, CraftItem>();
+  private rewardIdIndex = new Map<string, CraftItem[]>();
+
   protected onInit(): void {
+    this.buildIndex();
     logger.info('制造管理器初始化完成');
   }
 
   protected onReload(): void {
     // 制造管理器没有配置项需要重载
+  }
+
+  /** 构建 actionId 和 rewardId 的查找索引 */
+  private buildIndex(): void {
+    this.actionIdIndex.clear();
+    this.rewardIdIndex.clear();
+    for (const category of this.categories) {
+      for (const item of category.items) {
+        this.actionIdIndex.set(item.actionId, item);
+        for (const reward of item.rewards) {
+          const list = this.rewardIdIndex.get(reward.itemId) || [];
+          list.push(item);
+          this.rewardIdIndex.set(reward.itemId, list);
+        }
+      }
+    }
   }
 
   /** 获取物品标签名 */
@@ -100,24 +127,12 @@ class CraftManager extends BaseFeature {
   }
 
   private findByActionId(actionId: string): CraftItem | undefined {
-    for (const category of this.categories) {
-      const item = category.items.find((item) => item.actionId === actionId);
-      if (item) return item;
-    }
-    return undefined;
+    return this.actionIdIndex.get(actionId);
   }
 
   private findByRewardId(rewardId: string): CraftItem | undefined {
-    const candidates: CraftItem[] = [];
-    for (const category of this.categories) {
-      for (const item of category.items) {
-        if (item.rewards.some((r) => r.itemId === rewardId)) {
-          candidates.push(item);
-        }
-      }
-    }
-
-    if (candidates.length === 0) return undefined;
+    const candidates = this.rewardIdIndex.get(rewardId);
+    if (!candidates || candidates.length === 0) return undefined;
     if (candidates.length === 1) return candidates[0];
 
     const basicResources = new Set(['berry', 'fish', 'wood', 'stone', 'coal', 'treasureMap']);
@@ -228,6 +243,21 @@ class CraftManager extends BaseFeature {
       const resourceNeeds = new Map<string, number>();
       const missingResources: MissingResource[] = [];
 
+      // 预先批量获取所有涉及的库存数据
+      const allItemIds = new Set<string>();
+      for (const step of plan) {
+        const item = this.findByActionId(step.actionId);
+        if (!item) continue;
+        for (const reward of item.rewards) allItemIds.add(reward.itemId);
+        if (item.dependencies) {
+          for (const dep of item.dependencies) allItemIds.add(dep.itemId);
+        }
+      }
+      const itemIdList = [...allItemIds];
+      const stockValues = await Promise.all(itemIdList.map((id) => dataCache.getItemCountAsync(id)));
+      const stockMap = new Map<string, number>();
+      itemIdList.forEach((id, i) => stockMap.set(id, stockValues[i]));
+
       for (let i = plan.length - 1; i >= 0; i--) {
         const step = plan[i];
         const item = this.findByActionId(step.actionId);
@@ -243,8 +273,7 @@ class CraftManager extends BaseFeature {
               const need = dep.count * count;
               resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + need);
 
-              // 检查依赖品是否有库存
-              const stock = await dataCache.getItemCountAsync(dep.itemId);
+              const stock = stockMap.get(dep.itemId) || 0;
               const currentNeed = resourceNeeds.get(dep.itemId) || 0;
               if (stock < currentNeed) {
                 const existing = missingResources.find(m => m.itemId === dep.itemId);
@@ -262,7 +291,7 @@ class CraftManager extends BaseFeature {
         // 依赖项需要检查产出和库存
         let maxCount = 0;
         for (const reward of item.rewards) {
-          const stock = await dataCache.getItemCountAsync(reward.itemId);
+          const stock = stockMap.get(reward.itemId) || 0;
           const need = resourceNeeds.get(reward.itemId) || 0;
           const netNeed = Math.max(0, need - stock);
           const requiredCount = Math.ceil(netNeed / reward.count);
@@ -283,7 +312,7 @@ class CraftManager extends BaseFeature {
             const need = dep.count * count;
             resourceNeeds.set(dep.itemId, (resourceNeeds.get(dep.itemId) || 0) + need);
 
-            const stock = await dataCache.getItemCountAsync(dep.itemId);
+            const stock = stockMap.get(dep.itemId) || 0;
             const currentNeed = resourceNeeds.get(dep.itemId) || 0;
             if (stock < currentNeed) {
               const existing = missingResources.find(m => m.itemId === dep.itemId);
@@ -372,7 +401,7 @@ class CraftManager extends BaseFeature {
             const waitPromise = eventBus.waitFor('actionQueueUpdated');
             await ws.emit('addTaskToQueue', {
               actionId: taskId,
-              repeatCount: 999999,
+              repeatCount: CRAFT_CONSTANTS.DEFAULT_TASK_REPEAT_COUNT,
               currentRepeat: 0,
               createTime: Date.now(),
             });
@@ -440,7 +469,7 @@ class CraftManager extends BaseFeature {
             kittyUuid,
             task: {
               actionId: defaultTask,
-              repeatCount: 999999,
+              repeatCount: CRAFT_CONSTANTS.DEFAULT_TASK_REPEAT_COUNT,
               currentRepeat: 0,
               createTime: Date.now(),
             },

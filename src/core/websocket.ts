@@ -24,6 +24,24 @@ interface PendingMessage {
   data: any;
 }
 
+// ==================== 早期拦截 Hook 类型 ====================
+
+interface EarlyWsHook {
+  originalSend: typeof WebSocket.prototype.send;
+  originalAddEventListener: typeof WebSocket.prototype.addEventListener;
+  onmessageDescriptor: PropertyDescriptor | undefined;
+  outgoing: Array<{ ws: WebSocket; data: any }>;
+  incoming: Array<{ data: any }>;
+  socket: WebSocket | null;
+  taken: boolean;
+}
+
+declare global {
+  interface Window {
+    __earlyWsHook?: EarlyWsHook;
+  }
+}
+
 // ==================== 常量 ====================
 
 const MESSAGE_PREFIX = {
@@ -69,9 +87,45 @@ class WebSocketManager {
       return;
     }
 
-    this.interceptWebSocket();
+    const earlyHook = window.__earlyWsHook;
+
+    if (earlyHook) {
+      // 开发模式：接管早期同步拦截
+      logger.info('检测到早期 WebSocket 拦截，正在接管...');
+      earlyHook.taken = true;
+
+      // 复用已捕获的 socket 实例
+      if (earlyHook.socket) {
+        this.socket = earlyHook.socket;
+      }
+
+      // 重新 patch 原型，将回调指向本实例的处理方法
+      this.interceptWebSocket();
+
+      // 回放早期捕获的发送消息（提取用户信息）
+      const outCount = earlyHook.outgoing.length;
+      for (const msg of earlyHook.outgoing) {
+        this.handleOutgoing(msg.data);
+      }
+
+      // 回放早期捕获的接收消息
+      const inCount = earlyHook.incoming.length;
+      for (const msg of earlyHook.incoming) {
+        this.handleIncoming(msg.data);
+      }
+
+      // 清理
+      earlyHook.outgoing.length = 0;
+      earlyHook.incoming.length = 0;
+
+      logger.success(`WebSocket 监控初始化完成（接管早期拦截，回放 ${outCount} 条发送 / ${inCount} 条接收）`);
+    } else {
+      // 生产模式或无早期拦截：直接 patch
+      this.interceptWebSocket();
+      logger.success('WebSocket 监控初始化完成');
+    }
+
     this.initialized = true;
-    logger.success('WebSocket 监控初始化完成');
   }
 
   /**

@@ -23,6 +23,7 @@ const TOAST_STYLES = `
 .mh-toast-btn.secondary{background:#e0e0e0;color:#333}
 @keyframes mhSlideIn{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}
 @keyframes mhSlideOut{to{transform:translateY(-100%);opacity:0}}
+@media(max-width:768px){.mh-toast{padding:8px 12px 10px;min-width:auto}}
 `;
 
 GM.addStyle(TOAST_STYLES);

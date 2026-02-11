@@ -30,6 +30,18 @@ interface QuestManagerConfig {
   autoSubmit: boolean;
 }
 
+/** 任务刷新常量 */
+const QUEST_CONSTANTS = {
+  /** 单次刷新最大尝试次数 */
+  MAX_REROLL_ATTEMPTS: 50,
+  /** 每次刷新的金币单价 */
+  REROLL_GOLD_UNIT: 250,
+  /** 自动提交延迟（ms） */
+  AUTO_SUBMIT_DELAY: 3000,
+  /** 服务器响应等待间隔（ms） */
+  SERVER_RESPONSE_DELAY: 1000,
+} as const;
+
 class QuestManager extends BaseFeature {
   private config: QuestManagerConfig = {
     goldLimit: appConfig.QUEST_GOLD_LIMIT.defaultValue,
@@ -39,23 +51,24 @@ class QuestManager extends BaseFeature {
   };
 
   protected async onInit(): Promise<void> {
-    this.config.goldLimit = await appConfig.QUEST_GOLD_LIMIT.get();
-    this.config.selectedTasks = await appConfig.QUEST_SELECTED_TASKS.get();
-    this.config.autoExecute = await appConfig.QUEST_AUTO_EXECUTE.get();
-    this.config.autoSubmit = await appConfig.QUEST_AUTO_SUBMIT.get();
+    await this.loadConfig();
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
 
     if (this.config.autoSubmit) {
-      setTimeout(async () => await this.fetchAndCompleteQuests(false), 3000);
+      setTimeout(async () => await this.fetchAndCompleteQuests(false), QUEST_CONSTANTS.AUTO_SUBMIT_DELAY);
     }
   }
 
   protected async onReload(): Promise<void> {
+    await this.loadConfig();
+    logger.info('任务管理配置已刷新');
+  }
+
+  private async loadConfig(): Promise<void> {
     this.config.goldLimit = await appConfig.QUEST_GOLD_LIMIT.get();
     this.config.selectedTasks = await appConfig.QUEST_SELECTED_TASKS.get();
     this.config.autoExecute = await appConfig.QUEST_AUTO_EXECUTE.get();
     this.config.autoSubmit = await appConfig.QUEST_AUTO_SUBMIT.get();
-    logger.info('任务管理配置已刷新');
   }
 
   private isValidQuest(quest: Quest): boolean {
@@ -82,10 +95,10 @@ class QuestManager extends BaseFeature {
       const completedCount = quests.filter((q) => q.status === 'DONE').length;
       if (completedCount > 0) {
         toast.progress(`📦 检测到 ${completedCount} 个已完成任务，正在提交...`, 'quest');
-        await sleep(1000);
+        await sleep(QUEST_CONSTANTS.SERVER_RESPONSE_DELAY);
         await this.completeAll();
         toast.hideProgress('quest');
-        await sleep(1000);
+        await sleep(QUEST_CONSTANTS.SERVER_RESPONSE_DELAY);
         if (returnUpdatedList) {
           const res = await ws.request('quest:list');
           quests = res.payload.data || [];
@@ -112,14 +125,13 @@ class QuestManager extends BaseFeature {
   ): Promise<{ quest: Quest; attempts: number }> {
     let current = quest;
     let attempts = 0;
-    const maxAttempts = 50;
 
-    while (!this.isValidQuest(current) && attempts < maxAttempts) {
+    while (!this.isValidQuest(current) && attempts < QUEST_CONSTANTS.MAX_REROLL_ATTEMPTS) {
       attempts++;
       onProgress?.(attempts, current);
 
       // 检查金币限制
-      const goldAmount = (current.rerollCount + 1) * 250;
+      const goldAmount = (current.rerollCount + 1) * QUEST_CONSTANTS.REROLL_GOLD_UNIT;
       if (goldAmount >= this.config.goldLimit) {
         logger.warn(`金币超过限制(${goldAmount} ≥ ${this.config.goldLimit})，停止刷新: ${current.title}`);
         break;
@@ -136,7 +148,7 @@ class QuestManager extends BaseFeature {
       current = updated;
     }
 
-    if (attempts >= maxAttempts) {
+    if (attempts >= QUEST_CONSTANTS.MAX_REROLL_ATTEMPTS) {
       logger.warn(`任务刷新达到最大尝试次数: ${quest.title}`);
     }
 
@@ -177,7 +189,7 @@ class QuestManager extends BaseFeature {
         });
         await waitPromise;
         // 不加这句会有重复的任务 不懂
-        await sleep(1000);
+        await sleep(QUEST_CONSTANTS.SERVER_RESPONSE_DELAY);
       } catch (error) {
         logger.error(`添加任务失败: ${quests[i].target.actionId}`, error);
         // 继续执行下一个任务
@@ -267,7 +279,7 @@ class QuestManager extends BaseFeature {
         quests[questIndex] = quest;
         const status = this.isValidQuest(quest) ? '✅' : '⚠️';
         toast.progress(`${status} [${i + 1}/${toReroll.length}] [共${attempts}次] ${quest.title}`, 'quest');
-        await sleep(1000);
+        await sleep(QUEST_CONSTANTS.SERVER_RESPONSE_DELAY);
       }
 
       const uniqueQuests = this.getValidUniqueQuests(quests);

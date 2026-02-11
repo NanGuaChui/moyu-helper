@@ -172,6 +172,20 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
         </Row>
         <Row>
           <Checkbox
+            checked={settings[appConfig.BATTLE_STATS_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.BATTLE_STATS_ENABLED.key, v)}
+            label="战斗统计 - 统计战斗中的伤害、技能使用等数据"
+          />
+        </Row>
+        <Row>
+          <Checkbox
+            checked={settings[appConfig.ENHANCE_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.ENHANCE_ENABLED.key, v)}
+            label="强化助手 - 自动强化装备到目标等级"
+          />
+        </Row>
+        <Row>
+          <Checkbox
             checked={settings[appConfig.TOOLBAR_TOGGLE_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.TOOLBAR_TOGGLE_ENABLED.key, v)}
             label="隐藏生活质量 - 启动后自动隐藏，可通过菜单切换显示"

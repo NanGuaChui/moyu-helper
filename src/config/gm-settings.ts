@@ -83,6 +83,8 @@ export const appConfig = {
   SKILL_ALLOCATION_ENABLED: createGMConfigSetting('skill_allocation_enabled', false),
   QUICK_ALCHEMY_ENABLED: createGMConfigSetting('quick_alchemy_enabled', false),
   QUICK_ACTIONS_ENABLED: createGMConfigSetting('quick_actions_enabled', false),
+  BATTLE_STATS_ENABLED: createGMConfigSetting('battle_stats_enabled', false),
+  ENHANCE_ENABLED: createGMConfigSetting('enhance_enabled', false),
 
   // 技能分配配置
   SKILL_ALLOCATION_SPECIALTY: createGMConfigSetting('skill_allocation_specialty', 'knowledge'),
