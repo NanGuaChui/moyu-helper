@@ -40,13 +40,15 @@ export function getWsErrorMessage(error: unknown, fallback = '操作失败，请
   return fallback;
 }
 
-/** 等待指定 DOM 元素出现（轮询方式） */
-export function waitForElement(selector: string, interval = 500): Promise<Element> {
-  return new Promise((resolve) => {
+/** 等待指定 DOM 元素出现（轮询方式，带超时保护） */
+export function waitForElement(selector: string, interval = 500, timeout = 30000): Promise<Element> {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
     const check = () => {
       const el = document.querySelector(selector);
-      if (el) resolve(el);
-      else setTimeout(check, interval);
+      if (el) return resolve(el);
+      if (Date.now() - start > timeout) return reject(new Error(`等待元素 "${selector}" 超时 (${timeout}ms)`));
+      setTimeout(check, interval);
     };
     check();
   });

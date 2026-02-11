@@ -50,8 +50,8 @@ const MENU_BUTTON_DEFS: MenuButtonDef[] = [
 /**
  * 批量读取功能开关，返回 flag → boolean 映射
  */
-async function loadFeatureFlags<K extends string>(keys: K[]): Promise<Record<K, boolean>> {
-  const values = await Promise.all(keys.map((k) => (appConfig as any)[k].get() as Promise<boolean>));
+async function loadFeatureFlags<K extends keyof typeof appConfig>(keys: K[]): Promise<Record<K, boolean>> {
+  const values = await Promise.all(keys.map((k) => appConfig[k].get() as Promise<boolean>));
   return Object.fromEntries(keys.map((k, i) => [k, values[i]])) as Record<K, boolean>;
 }
 

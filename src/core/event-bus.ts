@@ -22,8 +22,9 @@ class EventBus {
 
     // 防止监听器数量过多导致内存泄漏
     if (handlers.size >= MAX_LISTENERS_PER_EVENT) {
-      logger.warn(`[EventBus] 事件 "${event}" 监听器数量已达上限 (${MAX_LISTENERS_PER_EVENT})，请检查是否存在内存泄漏`);
-      return () => {};
+      const msg = `[EventBus] 事件 "${event}" 监听器数量已达上限 (${MAX_LISTENERS_PER_EVENT})，请检查是否存在内存泄漏`;
+      logger.error(msg);
+      throw new Error(msg);
     }
 
     handlers.add(handler);
