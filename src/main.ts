@@ -20,6 +20,7 @@ import {
   tavernExpertManager,
   quickActions,
   battleStatsManager,
+  enhanceManager,
 } from './features';
 import { appConfig } from './config/gm-settings';
 
@@ -43,6 +44,7 @@ const MENU_BUTTON_DEFS: MenuButtonDef[] = [
   { flag: 'TAVERN_EXPERT_ENABLED', text: '🏠 酒馆管理', onClick: () => tavernExpertManager.openPanel(), order: 6 },
   { flag: 'QUICK_ACTIONS_ENABLED', text: '⚡ 快捷功能', onClick: () => quickActions.openModal(), order: 7 },
   { flag: 'BATTLE_STATS_ENABLED', text: '📊 战斗统计', onClick: () => battleStatsManager.openModal(), order: 8 },
+  { flag: 'ENHANCE_ENABLED', text: '🔨 强化助手', onClick: () => enhanceManager.openModal(), order: 9 },
 ];
 
 /**
@@ -87,6 +89,7 @@ const ALL_FEATURE_FLAGS = [
   'QUICK_ACTIONS_ENABLED',
   'QUICK_ALCHEMY_ENABLED',
   'BATTLE_STATS_ENABLED',
+  'ENHANCE_ENABLED',
 ] as const;
 
 /**
