@@ -28,8 +28,19 @@ function getSkillDisplayName(skillId: string): string {
 
 // ── 浮动文本关键词 ─────────────────────────────────────────────
 const FLOAT_TEXT_KEYWORDS = [
-  '静电', '超级静电', '协同射击', '精准射击', '追击', '连袭',
-  '星辉奔涌', '狱卒的催促', '光明法典', '黑暗法典', '龙之咆哮', '瞬影', '交织',
+  '静电',
+  '超级静电',
+  '协同射击',
+  '精准射击',
+  '追击',
+  '连袭',
+  '星辉奔涌',
+  '狱卒的催促',
+  '光明法典',
+  '黑暗法典',
+  '龙之咆哮',
+  '瞬影',
+  '交织',
 ];
 
 // ── 工具函数 ───────────────────────────────────────────────────
@@ -50,14 +61,30 @@ function formatTime(ms: number): string {
 }
 
 function createSkillStats(): SkillStats {
-  return { totalDamage: 0, totalLossMP: 0, actionCount: 0, maxDamage: 0, averageDamage: 0, firstTime: null, lastTime: null };
+  return {
+    totalDamage: 0,
+    totalLossMP: 0,
+    actionCount: 0,
+    maxDamage: 0,
+    averageDamage: 0,
+    firstTime: null,
+    lastTime: null,
+  };
 }
 
 function createPlayerStats(name: string): PlayerStats {
   return {
-    name, totalDamage: 0, totalLossMP: 0, totalRestoreMP: 0, totalHeal: 0,
-    totalReceivedDamage: 0, totalActions: 0, totalSSCC: 0,
-    firstActionTime: null, lastActionTime: null, skills: {},
+    name,
+    totalDamage: 0,
+    totalLossMP: 0,
+    totalRestoreMP: 0,
+    totalHeal: 0,
+    totalReceivedDamage: 0,
+    totalActions: 0,
+    totalSSCC: 0,
+    firstActionTime: null,
+    lastActionTime: null,
+    skills: {},
   };
 }
 
@@ -93,8 +120,12 @@ class BattleStatsManager extends BaseFeature {
   private static readonly PROGRESS_ID = 'battle-stats-progress';
   private progressTimer: ReturnType<typeof setInterval> | null = null;
 
-  protected onInit(): void { }
-  protected onReload(): void { }
+  // 日志拦截
+  private eventLogs: Array<{ event: string; timestamp: number; data: any }> = [];
+  private isLogging = false;
+
+  protected onInit(): void {}
+  protected onReload(): void {}
 
   setRenderCallback(cb: () => void): void {
     this.renderCallback = cb;
@@ -112,32 +143,42 @@ class BattleStatsManager extends BaseFeature {
     if (this.isListening) return;
     this.isListening = true;
 
-    const events = [
-      'battle:fullInfo:success',
-      'battle:dealDamage:success',
-      'battle:castSkill:success',
-      'battle:lossMp:success',
-      'battle:restoreMp:success',
-      'battle:heal:success',
-      'battle:floatText:success',
-      'battleRoom:startBattle:success',
-    ];
-
     const handlers: Record<string, (msg: any) => void> = {
-      'battle:fullInfo:success': (msg) => this.handleFullInfo(msg),
-      'battle:dealDamage:success': (msg) => this.handleDealDamage(msg),
-      'battle:castSkill:success': (msg) => this.handleCastSkill(msg),
-      'battle:lossMp:success': (msg) => this.handleLossMp(msg),
-      'battle:restoreMp:success': (msg) => this.handleRestoreMp(msg),
-      'battle:heal:success': (msg) => this.handleHeal(msg),
-      'battle:floatText:success': (msg) => this.handleFloatText(msg),
-      'battleRoom:startBattle:success': (msg) => this.handleStartBattle(msg),
+      'battle:fullInfo:success': (msg) => {
+        this.logEvent('battle:fullInfo:success', msg);
+        this.handleFullInfo(msg);
+      },
+      'battle:dealDamage:success': (msg) => {
+        this.logEvent('battle:dealDamage:success', msg);
+        this.handleDealDamage(msg);
+      },
+      'battle:castSkill:success': (msg) => {
+        this.logEvent('battle:castSkill:success', msg);
+        this.handleCastSkill(msg);
+      },
+      'battle:lossMp:success': (msg) => {
+        this.logEvent('battle:lossMp:success', msg);
+        this.handleLossMp(msg);
+      },
+      'battle:restoreMp:success': (msg) => {
+        this.logEvent('battle:restoreMp:success', msg);
+        this.handleRestoreMp(msg);
+      },
+      'battle:heal:success': (msg) => {
+        this.logEvent('battle:heal:success', msg);
+        this.handleHeal(msg);
+      },
+      'battle:floatText:success': (msg) => {
+        this.logEvent('battle:floatText:success', msg);
+        this.handleFloatText(msg);
+      },
+      'battleRoom:startBattle:success': (msg) => {
+        this.logEvent('battleRoom:startBattle:success', msg);
+        this.handleStartBattle(msg);
+      },
     };
 
-    for (const event of events) {
-      const unsub = ws.on(event, handlers[event]);
-      this.unsubscribers.push(unsub);
-    }
+    this.unsubscribers = Object.entries(handlers).map(([event, handler]) => ws.on(event, handler));
 
     if (!this.battleMeta.startTime) this.battleMeta.startTime = Date.now();
 
@@ -169,6 +210,59 @@ class BattleStatsManager extends BaseFeature {
     return this.isListening;
   }
 
+  // ── 日志拦截与导出 ───────────────────────────────────────────
+  private logEvent(event: string, msg: any): void {
+    if (!this.isLogging) return;
+    this.eventLogs.push({ event, timestamp: Date.now(), data: structuredClone(msg) });
+  }
+
+  startLogging(): void {
+    this.isLogging = true;
+    this.eventLogs = [];
+    logger.success('[战斗统计] 开始记录日志');
+    toast.success('开始记录战斗日志');
+  }
+
+  stopLogging(): void {
+    this.isLogging = false;
+    logger.info(`[战斗统计] 停止记录日志，共 ${this.eventLogs.length} 条`);
+    toast.info(`已停止记录，共 ${this.eventLogs.length} 条日志`);
+  }
+
+  exportLogs(): void {
+    if (this.eventLogs.length === 0) {
+      toast.warning('没有日志可导出');
+      return;
+    }
+
+    const logData = {
+      exportTime: new Date().toISOString(),
+      totalEvents: this.eventLogs.length,
+      battleMeta: this.battleMeta,
+      playerCache: [...this.playerCache.values()],
+      summonToOwnerMap: [...this.summonToOwnerMap.values()],
+      events: this.eventLogs,
+    };
+
+    const blob = new Blob([JSON.stringify(logData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `battle-logs-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    logger.success(`[战斗统计] 已导出 ${this.eventLogs.length} 条日志`);
+    toast.success(`已导出 ${this.eventLogs.length} 条日志`);
+  }
+
+  clearLogs(): void {
+    this.eventLogs = [];
+    this.isLogging = false;
+    logger.info('[战斗统计] 已清空日志');
+    toast.info('已清空日志');
+  }
+
   clear(): void {
     this.playerStats.clear();
     this.playerCache.clear();
@@ -188,13 +282,11 @@ class BattleStatsManager extends BaseFeature {
   }
 
   private ensurePlayerStats(uuid: string, name?: string): PlayerStats | null {
-    // 只统计玩家
     const info = this.playerCache.get(uuid);
     const isPlayer = info?.isPlayer ?? false;
     const isCurrentUser = uuid === ws.user?.uuid;
-    const shouldReturnNull = !isPlayer && !isCurrentUser;
-
-    if (shouldReturnNull) return null;
+    
+    if (!isPlayer && !isCurrentUser) return null;
 
     if (!this.playerStats.has(uuid)) {
       this.playerStats.set(uuid, createPlayerStats(name ?? this.getPlayerName(uuid)));
@@ -260,7 +352,9 @@ class BattleStatsManager extends BaseFeature {
     // 统计承受伤害
     for (const t of targets) {
       if (!t?.unit) continue;
-      const ps = this.playerStats.get(t.unit) ?? (this.playerCache.get(t.unit)?.isPlayer ? this.ensurePlayerStats(t.unit) : null);
+      const ps =
+        this.playerStats.get(t.unit) ??
+        (this.playerCache.get(t.unit)?.isPlayer ? this.ensurePlayerStats(t.unit) : null);
       if (ps) {
         ps.totalReceivedDamage += (t.shieldDamage ?? 0) + (t.value ?? 0);
       }
@@ -367,7 +461,10 @@ class BattleStatsManager extends BaseFeature {
 
     let matched = '';
     for (const kw of FLOAT_TEXT_KEYWORDS) {
-      if (text.startsWith(kw)) { matched = kw; break; }
+      if (text.startsWith(kw)) {
+        matched = kw;
+        break;
+      }
     }
 
     // if (matched) {
@@ -392,7 +489,7 @@ class BattleStatsManager extends BaseFeature {
       const skillName = text.split('-')[1];
       const skillId = findSkillIdByName(skillName);
       if (skillId && isZeroDamageSkill(skillId)) {
-        this.recordSupportSkill(fromUser, skillId, `交织-${getSkillDisplayName(skillId)}`)
+        this.recordSupportSkill(fromUser, skillId, `交织-${getSkillDisplayName(skillId)}`);
         return;
       }
     }
@@ -536,7 +633,12 @@ class BattleStatsManager extends BaseFeature {
     return { isValid: totalDamage > 0, totalDamage, maxDamage };
   }
 
-  private recordDamage(uuid: string, ps: PlayerStats, skillDisplayName: string, analysis: { totalDamage: number; maxDamage: number }): void {
+  private recordDamage(
+    uuid: string,
+    ps: PlayerStats,
+    skillDisplayName: string,
+    analysis: { totalDamage: number; maxDamage: number },
+  ): void {
     const now = Date.now();
 
     // console.log(`[战斗统计] 伤害记录: user=${uuid}, skill=${skillDisplayName}, damage=${analysis.totalDamage}`);
@@ -613,14 +715,7 @@ class BattleStatsManager extends BaseFeature {
 
   renderUI(): void {
     if (!this.container) return;
-    render(
-      <BattleStatsModal
-        isOpen={this.isOpen}
-        onClose={this.closeModal}
-        manager={this}
-      />,
-      this.container,
-    );
+    render(<BattleStatsModal isOpen={this.isOpen} onClose={this.closeModal} manager={this} />, this.container);
   }
 }
 
@@ -642,7 +737,7 @@ function BattleStatsModal({ isOpen, onClose, manager }: BattleStatsModalProps) {
 
   useEffect(() => {
     manager.setRenderCallback(forceUpdate);
-    return () => manager.setRenderCallback(() => { });
+    return () => manager.setRenderCallback(() => {});
   }, [manager, forceUpdate]);
 
   // 运行时间定时刷新
@@ -650,7 +745,9 @@ function BattleStatsModal({ isOpen, onClose, manager }: BattleStatsModalProps) {
     if (isOpen && manager.listening) {
       tickRef.current = setInterval(forceUpdate, 1000);
     }
-    return () => { if (tickRef.current) clearInterval(tickRef.current); };
+    return () => {
+      if (tickRef.current) clearInterval(tickRef.current);
+    };
   }, [isOpen, manager.listening, forceUpdate]);
 
   const handleToggle = () => {
@@ -666,19 +763,14 @@ function BattleStatsModal({ isOpen, onClose, manager }: BattleStatsModalProps) {
 
   const meta = manager.battleMeta;
   const runTime = meta.startTime ? formatTime(Date.now() - meta.startTime) : '-';
-  const players = Array.from(manager.playerStats.entries())
-    .sort(([, a], [, b]) => b.totalDamage - a.totalDamage);
+  const players = Array.from(manager.playerStats.entries()).sort(([, a], [, b]) => b.totalDamage - a.totalDamage);
   const totalDamage = players.reduce((sum, [, p]) => sum + p.totalDamage, 0);
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="📊 战斗统计" maxWidth="480px" maxHeight="85vh">
       {/* 控制栏 */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-        <Button
-          variant={manager.listening ? 'danger' : 'primary'}
-          onClick={handleToggle}
-          style={{ flex: 1 }}
-        >
+        <Button variant={manager.listening ? 'danger' : 'primary'} onClick={handleToggle} style={{ flex: 1 }}>
           {manager.listening ? '⏹ 停止' : '▶ 开始'}
         </Button>
         <Button variant="secondary" onClick={handleClear} style={{ flex: 1 }}>
@@ -701,10 +793,46 @@ function BattleStatsModal({ isOpen, onClose, manager }: BattleStatsModalProps) {
           {manager.listening ? '等待战斗数据...' : '点击「开始」按钮开始统计'}
         </div>
       ) : (
-        players.map(([uuid, ps]) => (
-          <PlayerCard key={uuid} stats={ps} />
-        ))
+        players.map(([uuid, ps]) => <PlayerCard key={uuid} stats={ps} />)
       )}
+
+      {/* 日志控制栏 */}
+      <Card style={{ marginBottom: '10px' }}>
+        <div style={{ fontSize: '12px', marginBottom: '6px', color: '#666' }}>
+          📝 调试日志 (已记录 {manager['eventLogs'].length} 条)
+        </div>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <Button
+            variant={manager['isLogging'] ? 'danger' : 'primary'}
+            onClick={() => {
+              if (manager['isLogging']) manager.stopLogging();
+              else manager.startLogging();
+              forceUpdate();
+            }}
+            style={{ flex: 1, fontSize: '11px', padding: '4px 8px' }}
+          >
+            {manager['isLogging'] ? '⏹ 停止记录' : '📝 开始记录'}
+          </Button>
+          <Button
+            variant="primary"
+            onClick={() => manager.exportLogs()}
+            disabled={manager['eventLogs'].length === 0}
+            style={{ flex: 1, fontSize: '11px', padding: '4px 8px' }}
+          >
+            💾 导出日志
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              manager.clearLogs();
+              forceUpdate();
+            }}
+            style={{ flex: 1, fontSize: '11px', padding: '4px 8px' }}
+          >
+            🗑 清空日志
+          </Button>
+        </div>
+      </Card>
     </Modal>
   );
 }
@@ -719,8 +847,7 @@ function PlayerCard({ stats }: PlayerCardProps) {
   const dpa = stats.totalActions > 0 ? stats.totalDamage / stats.totalActions : 0;
   const manaEfficiency = stats.totalLossMP > 0 ? ((stats.totalRestoreMP / stats.totalLossMP) * 100).toFixed(1) : '-';
 
-  const skills = Object.entries(stats.skills)
-    .sort(([, a], [, b]) => b.totalDamage - a.totalDamage);
+  const skills = Object.entries(stats.skills).sort(([, a], [, b]) => b.totalDamage - a.totalDamage);
 
   const title = `${stats.name}  伤害:${formatNum(stats.totalDamage)}  DPA:${formatNum(dpa)}  承伤:${formatNum(stats.totalReceivedDamage)}`;
 
