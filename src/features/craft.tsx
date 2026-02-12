@@ -114,15 +114,18 @@ class CraftManager extends BaseFeature {
 
   /** 获取物品标签名 */
   getItemLabel(actionId: string): string {
+    if (!this._initialized) this.init();
     const item = this.findByActionId(actionId);
     return item?.label || actionId;
   }
 
   getCraftCategories(): CraftItemCategory[] {
+    if (!this._initialized) this.init();
     return this.categories;
   }
 
   getCraftItems(): CraftItem[] {
+    if (!this._initialized) this.init();
     return this.categories.flatMap((category) => category.items);
   }
 
@@ -154,6 +157,7 @@ class CraftManager extends BaseFeature {
   }
   /** 根据产出物品ID查找可制造的物品，返回 actionId、label 和单次产出数量 */
   findCraftableByRewardId(rewardId: string): { actionId: string; label: string; rewardCount: number } | null {
+    if (!this._initialized) this.init();
     const item = this.findByRewardId(rewardId);
     if (!item) return null;
     const reward = item.rewards.find((r) => r.itemId === rewardId);

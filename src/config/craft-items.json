@@ -79,6 +79,35 @@
         ]
       },
       {
+        "value": "makeBerryPie",
+        "label": "烤制浆果派",
+        "actionId": "makeBerryPie",
+        "rewards": [
+          {
+            "itemId": "berryPie",
+            "count": 1,
+            "label": "浆果派"
+          },
+          {
+            "itemId": "mysteryCan",
+            "count": 0.05,
+            "label": "神秘罐头"
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "mushroom",
+            "count": 1,
+            "label": "蘑菇"
+          },
+          {
+            "itemId": "honey",
+            "count": 1,
+            "label": "蜂蜜"
+          }
+        ]
+      },
+      {
         "value": "makeDawnBlossomWine",
         "label": "酿造晨露精酿",
         "actionId": "makeDawnBlossomWine",
@@ -199,6 +228,35 @@
         ]
       },
       {
+        "value": "makeMilkManaShake",
+        "label": "制作浆果奶昔",
+        "actionId": "makeMilkManaShake",
+        "rewards": [
+          {
+            "itemId": "milkManaShake",
+            "count": 1,
+            "label": "浆果奶昔"
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "milk",
+            "count": 10,
+            "label": "牛奶"
+          },
+          {
+            "itemId": "honey",
+            "count": 1,
+            "label": "蜂蜜"
+          },
+          {
+            "itemId": "glassBottles",
+            "count": 1,
+            "label": "玻璃瓶"
+          }
+        ]
+      },
+      {
         "value": "makeCloudFluffCandy",
         "label": "制作软软棉花糖",
         "actionId": "makeCloudFluffCandy",
@@ -224,6 +282,40 @@
             "itemId": "slimeGel",
             "count": 1,
             "label": "史莱姆凝胶"
+          }
+        ]
+      },
+      {
+        "value": "makeSashimiPlatter",
+        "label": "制作鲜鱼刺身拼盘",
+        "actionId": "makeSashimiPlatter",
+        "rewards": [
+          {
+            "itemId": "sashimiPlatter",
+            "count": 1,
+            "label": "鲜鱼刺身拼盘"
+          },
+          {
+            "itemId": "mysteryCan",
+            "count": 0.25,
+            "label": "神秘罐头"
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "tuna",
+            "count": 1,
+            "label": "金枪鱼"
+          },
+          {
+            "itemId": "rareCatfish",
+            "count": 1,
+            "label": "稀有猫鱼"
+          },
+          {
+            "itemId": "mysticalKoi",
+            "count": 1,
+            "label": "神秘锦鲤"
           }
         ]
       },
@@ -1150,6 +1242,28 @@
         ]
       },
       {
+        "value": "gatherMushroom",
+        "label": "采蘑菇",
+        "actionId": "gatherMushroom",
+        "rewards": [
+          {
+            "itemId": "mushroom",
+            "count": 2,
+            "label": "蘑菇"
+          },
+          {
+            "itemId": "luminousMoss",
+            "count": 0.08,
+            "label": "夜光苔"
+          },
+          {
+            "itemId": "luckyCatBox",
+            "count": 0.01,
+            "label": "幸运猫盒"
+          }
+        ]
+      },
+      {
         "value": "cutBamboo",
         "label": "砍竹子",
         "actionId": "cutBamboo",
@@ -1222,6 +1336,72 @@
             "itemId": "catHairball",
             "count": 0.2,
             "label": "猫毛球"
+          }
+        ]
+      },
+      {
+        "value": "deepSeaFishing",
+        "label": "深海捕鱼",
+        "actionId": "deepSeaFishing",
+        "rewards": [
+          {
+            "itemId": "fish",
+            "count": 5,
+            "label": "鱼"
+          },
+          {
+            "itemId": "salmon",
+            "count": 0.8,
+            "label": "鲑鱼"
+          },
+          {
+            "itemId": "tuna",
+            "count": 0.6,
+            "label": "金枪鱼"
+          },
+          {
+            "itemId": "jadeTuna",
+            "count": 0.05,
+            "label": "翡翠金枪鱼"
+          }
+        ]
+      },
+      {
+        "value": "mysticalFishing",
+        "label": "神秘钓鱼",
+        "actionId": "mysticalFishing",
+        "rewards": [
+          {
+            "itemId": "fish",
+            "count": 5,
+            "label": "鱼"
+          },
+          {
+            "itemId": "tuna",
+            "count": 2.4000000000000004,
+            "label": "金枪鱼"
+          },
+          {
+            "itemId": "rareCatfish",
+            "count": 0.5,
+            "label": "稀有猫鱼"
+          },
+          {
+            "itemId": "mysticalKoi",
+            "count": 0.3,
+            "label": "神秘锦鲤"
+          },
+          {
+            "itemId": "moonlightShrimp",
+            "count": 0.5,
+            "label": "月光虾"
+          }
+        ],
+        "dependencies": [
+          {
+            "itemId": "mysticalEssence",
+            "count": 1,
+            "label": "神秘精华"
           }
         ]
       }

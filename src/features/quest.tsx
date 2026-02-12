@@ -181,7 +181,7 @@ class QuestManager extends BaseFeature {
       onProgress?.(i + 1, quests.length);
       try {
         const waitPromise = eventBus.waitFor('actionQueueUpdated');
-        await ws.emit('task:immediatelyStart', {
+        await ws.request('task:immediatelyStart', {
           actionId: quests[i].target.actionId,
           repeatCount: quests[i].target.count,
           currentRepeat: 0,

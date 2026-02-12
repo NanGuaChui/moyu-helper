@@ -375,6 +375,17 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             label="自动购买基础资源（购买到设置量的110%，向下取整）"
           />
         </Row>
+        <Row label="制造浮动倍率">
+          <Input
+            type="number"
+            value={settings[appConfig.RESOURCE_CRAFT_MULTIPLIER.key]}
+            onChange={(v) => updateSetting(appConfig.RESOURCE_CRAFT_MULTIPLIER.key, parseFloat(v) || 1)}
+            min={1}
+            max={3}
+            step={0.1}
+            style={{ width: '100px' }}
+          />
+        </Row>
 
         {resourceCategories.map((category, categoryIndex) => (
           <Section key={categoryIndex} title={category.name}>

@@ -34,6 +34,7 @@ export const appConfig = {
   // 资源监控配置
   RESOURCE_MONITOR_ENABLED: createGMConfigSetting('resource_monitor_enabled', false),
   AUTO_BUY_BASE_RESOURCES: createGMConfigSetting('auto_buy_base_resources', false),
+  RESOURCE_CRAFT_MULTIPLIER: createGMConfigSetting('resource_craft_multiplier', 1.5),
   MONITORED_RESOURCES: createGMConfigSetting('monitored_resources', '{}'),
 
   // 日志级别配置
