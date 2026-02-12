@@ -8,7 +8,7 @@ import { logger } from '@/core';
 import { throttle } from '@/utils';
 
 const STYLES = `
-.mh-fab{position:fixed;bottom:calc(var(--spacing) * 25);z-index:9999;width:48px;height:48px;border-radius:50%;border:none;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.08);color:#6366f1;font-size:18px;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1)}
+.mh-fab{position:fixed;bottom:calc(var(--spacing) * 25);z-index:9999;width:60px;height:60px;border-radius:50%;border:none;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,.12),0 2px 8px rgba(0,0,0,.08);color:#6366f1;font-size:20px;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1)}
 .mh-fab-menu{position:fixed;bottom:calc(var(--spacing) * 25 + 56px);z-index:10000;width:130px;max-height:calc(100vh - var(--spacing) * 25 - 76px);background:#fff;border-radius:10px;border:1px solid rgba(0,0,0,.08);box-shadow:0 8px 28px rgba(0,0,0,.12);padding:6px;opacity:0;transform:translateY(12px) scale(.95);pointer-events:none;transition:all .25s cubic-bezier(.4,0,.2,1);overflow-y:auto}
 .mh-fab-menu.open{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
 .mh-fab-menu.modal-mode{position:fixed;top:50%;left:50%;bottom:auto;right:auto;transform:translate(-50%,-50%) scale(.95);width:90%;max-width:240px;max-height:80vh;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.15);padding:10px;overflow-y:auto}
