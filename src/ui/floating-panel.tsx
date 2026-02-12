@@ -18,7 +18,7 @@ const STYLES = `
 .mh-fab-item{width:100%;padding:10px 12px;border:none;border-radius:6px;background:transparent;color:#333;font-size:13px;text-align:left;cursor:pointer;transition:all .15s ease;margin-bottom:3px}
 .mh-fab-item:hover{background:#f8f9fa;transform:translateX(-2px)}
 @media (max-width: 768px){
-  .mh-fab{width:40px;height:40px;bottom:calc(var(--spacing) * 22);}
+  .mh-fab{width:50px;height:50px;bottom:calc(var(--spacing) * 22);}
   .mh-fab-menu{bottom:calc(var(--spacing) * 22 + 48px);max-height:calc(100vh - var(--spacing) * 22 - 68px);}
 }
 `;
