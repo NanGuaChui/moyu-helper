@@ -44,7 +44,7 @@ export const DEFAULT_RESOURCES: ResourceCategory[] = [
   {
     name: '制作材料',
     items: {
-      paper: { threshold: 500, type: 'insufficient' },
+      paper: { threshold: 100, type: 'insufficient' },
       book: { threshold: 100, type: 'insufficient' },
       pencil: { threshold: 5, type: 'insufficient' },
     },
@@ -53,18 +53,21 @@ export const DEFAULT_RESOURCES: ResourceCategory[] = [
     name: '食物',
     items: {
       simpleSalad: { threshold: 2000, type: 'insufficient' },
-      fishSoup: { threshold: 96, type: 'insufficient' },
-      ryeBread: { threshold: 288, type: 'insufficient' },
-      custardPudding: { threshold: 96, type: 'insufficient' },
-      cloudFluffCandy: { threshold: 96, type: 'insufficient' },
+      fishSoup: { threshold: 90, type: 'insufficient' },
+      ryeBread: { threshold: 180, type: 'insufficient' },
+      custardPudding: { threshold: 120, type: 'insufficient' },
+      cloudFluffCandy: { threshold: 60, type: 'insufficient' },
+      milkManaShake: { threshold: 60, type: 'insufficient' },
+      sashimiPlatter: { threshold: 30, type: 'insufficient' },
+      berryPie: { threshold: 30, type: 'insufficient' },
     },
   },
   {
     name: '饮品',
     items: {
-      berryWine: { threshold: 192, type: 'insufficient' },
-      dawnBlossomWine: { threshold: 48, type: 'insufficient' },
-      windBellWine: { threshold: 48, type: 'insufficient' },
+      berryWine: { threshold: 90, type: 'insufficient' },
+      dawnBlossomWine: { threshold: 30, type: 'insufficient' },
+      windBellWine: { threshold: 30, type: 'insufficient' },
     },
   },
   {
@@ -80,11 +83,11 @@ export const DEFAULT_RESOURCES: ResourceCategory[] = [
   {
     name: '猫咪用品',
     items: {
-      autoFeeder: { threshold: 3, type: 'insufficient' },
-      scratchingPost: { threshold: 3, type: 'insufficient' },
-      cashmereToy: { threshold: 3, type: 'insufficient' },
-      silkKittyNest: { threshold: 3, type: 'insufficient' },
-      silkCurtain: { threshold: 3, type: 'insufficient' },
+      autoFeeder: { threshold: 5, type: 'insufficient' },
+      scratchingPost: { threshold: 5, type: 'insufficient' },
+      cashmereToy: { threshold: 5, type: 'insufficient' },
+      silkKittyNest: { threshold: 5, type: 'insufficient' },
+      silkCurtain: { threshold: 5, type: 'insufficient' },
     },
   },
   {

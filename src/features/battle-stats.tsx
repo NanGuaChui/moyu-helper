@@ -592,13 +592,14 @@ class BattleStatsManager extends BaseFeature {
   }
 
   private showProgressToast(): void {
-    toast.progress(this.buildProgressSummary(), BattleStatsManager.PROGRESS_ID);
+    const onClick = () => this.openModal();
+    toast.progress(this.buildProgressSummary(), BattleStatsManager.PROGRESS_ID, onClick);
     this.progressTimer = setInterval(() => {
       if (!this.isListening) {
         this.hideProgressToast();
         return;
       }
-      toast.progress(this.buildProgressSummary(), BattleStatsManager.PROGRESS_ID);
+      toast.progress(this.buildProgressSummary(), BattleStatsManager.PROGRESS_ID, onClick);
     }, 2000);
   }
 

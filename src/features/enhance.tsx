@@ -93,7 +93,6 @@ class EnhanceManager extends BaseFeature {
     this.renderCallback = cb;
   }
 
-
   // ── 监听控制 ─────────────────────────────────────────────────
 
   startListening(): void {
@@ -107,7 +106,7 @@ class EnhanceManager extends BaseFeature {
     this.unsubscribers.push(unsubResult);
 
     // 监听强化失败（背包没有物品等）
-    const unsubFail = ws.on('enhance:require:fail', (msg) => {
+    const unsubFail = ws.on(['enhance:require:fail', 'enhance:result:error'], (msg) => {
       this.handleEnhanceFail(msg);
     });
     this.unsubscribers.push(unsubFail);
@@ -230,7 +229,6 @@ class EnhanceManager extends BaseFeature {
     return null;
   }
 
-
   // ── 自动强化控制 ─────────────────────────────────────────────
 
   startAutoEnhance(): void {
@@ -313,11 +311,21 @@ class EnhanceManager extends BaseFeature {
     };
   }
 
-  setTargetLevel(v: number): void { this.targetLevel = Math.max(1, Math.min(15, v)); }
-  setInterval(v: number): void { this.interval = Math.max(100, v); }
-  setBatchCount(v: number): void { this.batchCount = Math.max(1, v); }
-  setProtectMode(v: ProtectMode): void { this.protectMode = v; }
-  setProtectStartLevel(v: number): void { this.protectStartLevel = Math.max(0, Math.min(15, v)); }
+  setTargetLevel(v: number): void {
+    this.targetLevel = Math.max(1, Math.min(15, v));
+  }
+  setInterval(v: number): void {
+    this.interval = Math.max(100, v);
+  }
+  setBatchCount(v: number): void {
+    this.batchCount = Math.max(1, v);
+  }
+  setProtectMode(v: ProtectMode): void {
+    this.protectMode = v;
+  }
+  setProtectStartLevel(v: number): void {
+    this.protectStartLevel = Math.max(0, Math.min(15, v));
+  }
 
   // ── Modal 控制 ──────────────────────────────────────────────
 
@@ -352,13 +360,14 @@ class EnhanceManager extends BaseFeature {
   }
 
   private showProgressToast(): void {
-    toast.progress(this.buildProgressSummary(), EnhanceManager.PROGRESS_ID);
+    const onClick = () => this.openModal();
+    toast.progress(this.buildProgressSummary(), EnhanceManager.PROGRESS_ID, onClick);
     this.progressTimer = setInterval(() => {
       if (!this.isListening) {
         this.hideProgressToast();
         return;
       }
-      toast.progress(this.buildProgressSummary(), EnhanceManager.PROGRESS_ID);
+      toast.progress(this.buildProgressSummary(), EnhanceManager.PROGRESS_ID, onClick);
     }, 2000);
   }
 
@@ -372,19 +381,11 @@ class EnhanceManager extends BaseFeature {
 
   renderUI(): void {
     if (!this.container) return;
-    render(
-      <EnhanceModal
-        isOpen={this.isOpen}
-        onClose={this.closeModal}
-        manager={this}
-      />,
-      this.container,
-    );
+    render(<EnhanceModal isOpen={this.isOpen} onClose={this.closeModal} manager={this} />, this.container);
   }
 }
 
 export const enhanceManager = new EnhanceManager();
-
 
 // ── UI 组件 ────────────────────────────────────────────────────
 
@@ -421,9 +422,7 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
     forceUpdate();
   };
 
-  const successRate = stats.totalAttempts > 0
-    ? ((stats.totalSuccess / stats.totalAttempts) * 100).toFixed(1)
-    : '0.0';
+  const successRate = stats.totalAttempts > 0 ? ((stats.totalSuccess / stats.totalAttempts) * 100).toFixed(1) : '0.0';
 
   const PROTECT_BTN_STYLE = (active: boolean) => ({
     flex: 1,
@@ -436,11 +435,7 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
     <Modal isOpen={isOpen} onClose={onClose} title="🔨 强化助手" maxWidth="420px" maxHeight="85vh">
       {/* 监听控制 */}
       <div style={{ marginBottom: '10px' }}>
-        <Button
-          variant={isListening ? 'danger' : 'primary'}
-          onClick={handleToggleListening}
-          disabled={isAutoEnhancing}
-        >
+        <Button variant={isListening ? 'danger' : 'primary'} onClick={handleToggleListening} disabled={isAutoEnhancing}>
           {isListening ? '⏹ 停止监听' : '▶ 开始监听'}
         </Button>
       </div>
@@ -461,7 +456,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
               value={config.targetLevel}
               min={1}
               max={15}
-              onChange={(v) => { manager.setTargetLevel(parseInt(v) || 5); forceUpdate(); }}
+              onChange={(v) => {
+                manager.setTargetLevel(parseInt(v) || 5);
+                forceUpdate();
+              }}
               style={{ width: '80px' }}
               disabled={isAutoEnhancing}
             />
@@ -472,7 +470,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
                 type="number"
                 value={config.interval}
                 min={100}
-                onChange={(v) => { manager.setInterval(parseInt(v) || 3000); forceUpdate(); }}
+                onChange={(v) => {
+                  manager.setInterval(parseInt(v) || 3000);
+                  forceUpdate();
+                }}
                 style={{ width: '80px' }}
                 disabled={isAutoEnhancing}
               />
@@ -484,7 +485,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
               type="number"
               value={config.batchCount}
               min={1}
-              onChange={(v) => { manager.setBatchCount(parseInt(v) || 1); forceUpdate(); }}
+              onChange={(v) => {
+                manager.setBatchCount(parseInt(v) || 1);
+                forceUpdate();
+              }}
               style={{ width: '80px' }}
               disabled={isAutoEnhancing}
             />
@@ -494,7 +498,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
           <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
             <Button
               variant={config.protectMode === 'none' ? 'primary' : 'secondary'}
-              onClick={() => { manager.setProtectMode('none'); forceUpdate(); }}
+              onClick={() => {
+                manager.setProtectMode('none');
+                forceUpdate();
+              }}
               style={PROTECT_BTN_STYLE(config.protectMode === 'none')}
               disabled={isAutoEnhancing}
             >
@@ -502,7 +509,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
             </Button>
             <Button
               variant={config.protectMode === 'item' ? 'primary' : 'secondary'}
-              onClick={() => { manager.setProtectMode('item'); forceUpdate(); }}
+              onClick={() => {
+                manager.setProtectMode('item');
+                forceUpdate();
+              }}
               style={PROTECT_BTN_STYLE(config.protectMode === 'item')}
               disabled={isAutoEnhancing}
             >
@@ -510,7 +520,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
             </Button>
             <Button
               variant={config.protectMode === 'essence' ? 'primary' : 'secondary'}
-              onClick={() => { manager.setProtectMode('essence'); forceUpdate(); }}
+              onClick={() => {
+                manager.setProtectMode('essence');
+                forceUpdate();
+              }}
               style={PROTECT_BTN_STYLE(config.protectMode === 'essence')}
               disabled={isAutoEnhancing}
             >
@@ -525,7 +538,10 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
                 value={config.protectStartLevel}
                 min={0}
                 max={15}
-                onChange={(v) => { manager.setProtectStartLevel(parseInt(v) || 3); forceUpdate(); }}
+                onChange={(v) => {
+                  manager.setProtectStartLevel(parseInt(v) || 3);
+                  forceUpdate();
+                }}
                 style={{ width: '80px' }}
                 disabled={isAutoEnhancing}
               />
@@ -561,9 +577,20 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
             .map(([level, stat]) => {
               const rate = stat.attempts > 0 ? ((stat.success / stat.attempts) * 100).toFixed(1) : '0.0';
               return (
-                <div key={level} style={{ fontSize: '12px', color: '#555', marginBottom: '2px', display: 'flex', justifyContent: 'space-between' }}>
+                <div
+                  key={level}
+                  style={{
+                    fontSize: '12px',
+                    color: '#555',
+                    marginBottom: '2px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                  }}
+                >
                   <span>Lv{level}</span>
-                  <span>{stat.attempts}次 ({rate}%)</span>
+                  <span>
+                    {stat.attempts}次 ({rate}%)
+                  </span>
                 </div>
               );
             })}

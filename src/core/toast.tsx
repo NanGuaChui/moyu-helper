@@ -89,17 +89,19 @@ function ProgressToastComponent({
   message,
   showClose,
   onClose,
+  onClick,
 }: {
   message: string;
   showClose: boolean;
   onClose?: () => void;
+  onClick?: () => void;
 }) {
   return (
-    <div className="mh-toast info">
+    <div className="mh-toast info" onClick={onClick} style={onClick ? { cursor: 'pointer' } : undefined}>
       <div className="mh-toast-msg">{message}</div>
       <button
         className="mh-toast-close"
-        onClick={onClose}
+        onClick={(e) => { e.stopPropagation(); onClose?.(); }}
         style={{ opacity: showClose ? 1 : 0, pointerEvents: showClose ? 'auto' : 'none' }}
       >
         ×
@@ -107,6 +109,7 @@ function ProgressToastComponent({
     </div>
   );
 }
+
 
 type ToastType = 'info' | 'success' | 'warning' | 'error';
 
@@ -164,18 +167,18 @@ class Toast {
   warning = (msg: string, timeout = 3000) => this.show('warning', msg, timeout);
   error = (msg: string, timeout = 3500) => this.show('error', msg, timeout);
 
-  progress(msg: string, id: string = DEFAULT_PROGRESS_ID): void {
+  progress(msg: string, id: string = DEFAULT_PROGRESS_ID, onClick?: () => void): void {
     const container = this.getContainer();
     const existingToast = this.progressToasts.get(id);
 
     // 如果已存在该 ID 的 progress，直接更新
     if (existingToast) {
-      render(<ProgressToastComponent message={msg} showClose={false} />, existingToast);
+      render(<ProgressToastComponent message={msg} showClose={false} onClick={onClick} />, existingToast);
       return;
     }
 
     const toast = document.createElement('div');
-    render(<ProgressToastComponent message={msg} showClose={false} />, toast);
+    render(<ProgressToastComponent message={msg} showClose={false} onClick={onClick} />, toast);
     container.appendChild(toast);
     this.toastCount++;
     this.progressToasts.set(id, toast);

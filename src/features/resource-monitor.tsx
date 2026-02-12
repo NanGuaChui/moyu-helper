@@ -308,7 +308,7 @@ class ResourceMonitor extends BaseFeature {
     const content = createResourceAlertHTML(insufficientCount, excessCount, categorized);
 
     // 筛选可制造的不足资源
-    const craftableEntries = this.buildCraftableEntries(items);
+    const craftableEntries = await this.buildCraftableEntries(items);
 
     if (persistent) {
       if (craftableEntries.length > 0) {
@@ -325,9 +325,10 @@ class ResourceMonitor extends BaseFeature {
   }
 
   /** 从不足资源中筛选出可通过制造获得的物品，构建制造计划条目 */
-  private buildCraftableEntries(items: ResourceItem[]): Array<{ actionId: string; count: number }> {
+  private async buildCraftableEntries(items: ResourceItem[]): Promise<Array<{ actionId: string; count: number }>> {
     if (!this.nameToIdCache) return [];
 
+    const multiplier = await appConfig.RESOURCE_CRAFT_MULTIPLIER.get();
     const entries: Array<{ actionId: string; count: number }> = [];
 
     for (const item of items) {
@@ -339,7 +340,8 @@ class ResourceMonitor extends BaseFeature {
       const craftable = craftManager.findCraftableByRewardId(itemId);
       if (!craftable) continue;
 
-      const needed = item.threshold - item.count;
+      const adjustedThreshold = Math.ceil(item.threshold * multiplier);
+      const needed = adjustedThreshold - item.count;
       if (needed <= 0) continue;
 
       // 根据单次产出数量计算需要的制造次数
