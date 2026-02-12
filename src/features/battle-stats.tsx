@@ -93,8 +93,8 @@ class BattleStatsManager extends BaseFeature {
   private static readonly PROGRESS_ID = 'battle-stats-progress';
   private progressTimer: ReturnType<typeof setInterval> | null = null;
 
-  protected onInit(): void {}
-  protected onReload(): void {}
+  protected onInit(): void { }
+  protected onReload(): void { }
 
   setRenderCallback(cb: () => void): void {
     this.renderCallback = cb;
@@ -190,7 +190,11 @@ class BattleStatsManager extends BaseFeature {
   private ensurePlayerStats(uuid: string, name?: string): PlayerStats | null {
     // 只统计玩家
     const info = this.playerCache.get(uuid);
-    if (!info?.isPlayer && uuid !== ws.user?.uuid) return null;
+    const isPlayer = info?.isPlayer ?? false;
+    const isCurrentUser = uuid === ws.user?.uuid;
+    const shouldReturnNull = !isPlayer && !isCurrentUser;
+
+    if (shouldReturnNull) return null;
 
     if (!this.playerStats.has(uuid)) {
       this.playerStats.set(uuid, createPlayerStats(name ?? this.getPlayerName(uuid)));
@@ -214,6 +218,13 @@ class BattleStatsManager extends BaseFeature {
       this.playerCache.set(m.uuid, { name: m.name, uuid: m.uuid, isPlayer: m.isPlayer ?? false });
       if (m.isPlayer) this.playerUuidSet.add(m.uuid);
     }
+
+    // 调试日志：查看缓存的玩家
+    // console.log('[战斗统计] playerCache after fullInfo:', Array.from(this.playerCache.entries()).map(([k, v]) => ({
+    //   uuid: k,
+    //   name: v.name,
+    //   isPlayer: v.isPlayer
+    // })));
 
     // 建立召唤物映射
     for (const m of battleInfo.members) {
@@ -306,22 +317,47 @@ class BattleStatsManager extends BaseFeature {
 
   private handleTrackerDamage(user: string, data: any, _targets: any[]): void {
     if (this.isDarkBookEvent) {
+      this.ensureTrackerEntry(this.darkBookTracker, user);
       this.appendToTracker(this.darkBookTracker, user, 'damage', data);
       this.isDarkBookEvent = false;
       return;
     }
     if (this.isLumenBookEvent) {
+      this.ensureTrackerEntry(this.lumenBookTracker, user);
       this.appendToTracker(this.lumenBookTracker, user, 'damage', data);
       this.isLumenBookEvent = false;
       return;
     }
+    this.ensureTrackerEntry(this.floatDamageTracker, user);
     this.appendToTracker(this.floatDamageTracker, user, 'damage', data);
   }
 
   private appendToTracker(tracker: Map<string, any>, user: string, type: string, data: any): void {
     const seq = tracker.get(user);
     if (!seq || seq.isProcessing) return;
+
+    // 如果是新的 floatText，先处理旧的配对（避免跨技能配对）
+    if (type === 'floatText') {
+      const existingFloatText = seq.events.find((e: any) => e.type === 'floatText');
+      if (existingFloatText) {
+        this.processTrackerDamageForUser(tracker, user);
+      }
+    }
+
     seq.events.push({ type, data: JSON.parse(JSON.stringify(data)), timestamp: Date.now() });
+
+    // 如果是 damage 事件且已有 floatText，延迟 100ms 后处理（等待更多 damage 事件到达）
+    if (type === 'damage') {
+      const hasFloatText = seq.events.some((e: any) => e.type === 'floatText');
+      if (hasFloatText) {
+        // 清除之前的定时器
+        if (seq.processTimer) clearTimeout(seq.processTimer);
+        // 延迟处理，让多个 damage 事件收集起来
+        seq.processTimer = setTimeout(() => {
+          this.processTrackerDamageForUser(tracker, user);
+        }, 100);
+      }
+    }
   }
 
   private handleFloatText(msg: any): void {
@@ -334,25 +370,21 @@ class BattleStatsManager extends BaseFeature {
       if (text.startsWith(kw)) { matched = kw; break; }
     }
 
+    // if (matched) {
+    //   console.log(`[战斗统计] floatText: fromUser=${fromUser}, text=${text}, matched=${matched}`);
+    // }
+
     if (matched === '黑暗法典') {
-      this.processTrackerDamage(this.darkBookTracker);
       this.isDarkBookEvent = true;
-      this.darkBookTracker.set(fromUser, {
-        floatType: matched,
-        events: [{ type: 'floatText', data: msg.payload, timestamp: Date.now() }],
-        isProcessing: false,
-      });
+      this.ensureTrackerEntry(this.darkBookTracker, fromUser);
+      this.appendToTracker(this.darkBookTracker, fromUser, 'floatText', msg.payload);
       return;
     }
 
     if (matched === '光明法典') {
-      this.processTrackerDamage(this.lumenBookTracker);
       this.isLumenBookEvent = true;
-      this.lumenBookTracker.set(fromUser, {
-        floatType: matched,
-        events: [{ type: 'floatText', data: msg.payload, timestamp: Date.now() }],
-        isProcessing: false,
-      });
+      this.ensureTrackerEntry(this.lumenBookTracker, fromUser);
+      this.appendToTracker(this.lumenBookTracker, fromUser, 'floatText', msg.payload);
       return;
     }
 
@@ -360,57 +392,68 @@ class BattleStatsManager extends BaseFeature {
       const skillName = text.split('-')[1];
       const skillId = findSkillIdByName(skillName);
       if (skillId && isZeroDamageSkill(skillId)) {
-        this.recordSupportSkill(fromUser, skillId, `交织-${getSkillDisplayName(skillId)}`);
+        this.recordSupportSkill(fromUser, skillId, `交织-${getSkillDisplayName(skillId)}`)
         return;
       }
     }
 
     if (matched) {
-      this.processTrackerDamage(this.floatDamageTracker);
-      this.floatDamageTracker.set(fromUser, {
-        floatType: matched,
-        events: [{ type: 'floatText', data: msg.payload, timestamp: Date.now() }],
-        isProcessing: false,
-      });
+      this.ensureTrackerEntry(this.floatDamageTracker, fromUser);
+      this.appendToTracker(this.floatDamageTracker, fromUser, 'floatText', msg.payload);
     }
   }
 
-  private processTrackerDamage(tracker: Map<string, any>): void {
-    for (const [uuid, seq] of tracker) {
-      if (!seq || seq.isProcessing || seq.events.length === 0) continue;
-      seq.isProcessing = true;
+  private ensureTrackerEntry(tracker: Map<string, any>, user: string): void {
+    if (!tracker.has(user)) {
+      tracker.set(user, { floatType: '', events: [], isProcessing: false, processTimer: null });
+    }
+  }
 
-      const floatEvents = seq.events.filter((e: any) => e.type === 'floatText');
-      const damageEvents = seq.events.filter((e: any) => e.type === 'damage');
+  private processTrackerDamageForUser(tracker: Map<string, any>, user: string): boolean {
+    const seq = tracker.get(user);
+    if (!seq || seq.isProcessing || seq.events.length === 0) return false;
+
+    seq.isProcessing = true;
+
+    // 分离 floatText 和 damage 事件
+    const floatEvents = seq.events.filter((e: any) => e.type === 'floatText');
+    const damageEvents = seq.events.filter((e: any) => e.type === 'damage');
+
+    let processed = false;
+    // 只有同时有 floatText 和 damage 事件时才处理
+    if (floatEvents.length > 0 && damageEvents.length > 0) {
       const floatEvent = floatEvents[0];
-
-      if (floatEvent && damageEvents.length > 0) {
-        let totalDamage = 0;
-        for (const de of damageEvents) {
-          const targets = de.data?.target ?? [];
-          const a = this.analyzeDamage(targets);
-          if (a.isValid) totalDamage += a.totalDamage;
-        }
-        if (totalDamage > 0) {
-          const playerUuid = floatEvent.data?.data?.unit;
-          const text = floatEvent.data?.data?.text;
-          const ps = playerUuid ? this.playerStats.get(playerUuid) : null;
-          if (ps && text) {
-            ps.totalDamage += totalDamage;
-            if (!ps.skills[text]) ps.skills[text] = createSkillStats();
-            const sk = ps.skills[text];
-            sk.totalDamage += totalDamage;
-            sk.actionCount++;
-            if (!sk.firstTime) sk.firstTime = Date.now();
-            sk.lastTime = Date.now();
-            sk.averageDamage = sk.actionCount > 0 ? sk.totalDamage / sk.actionCount : 0;
-          }
+      let totalDamage = 0;
+      for (const de of damageEvents) {
+        const targets = de.data?.target ?? [];
+        const a = this.analyzeDamage(targets);
+        if (a.isValid) totalDamage += a.totalDamage;
+      }
+      if (totalDamage > 0) {
+        const playerUuid = floatEvent.data?.data?.unit;
+        const text = floatEvent.data?.data?.text;
+        const ps = playerUuid ? this.playerStats.get(playerUuid) : null;
+        if (ps && text) {
+          // console.log(`[战斗统计] 浮动伤害记录: user=${playerUuid}, skill=${text}, damage=${totalDamage}`);
+          ps.totalDamage += totalDamage;
+          if (!ps.skills[text]) ps.skills[text] = createSkillStats();
+          const sk = ps.skills[text];
+          sk.totalDamage += totalDamage;
+          // 同一回合的同一个技能只记一次（1.5s 内视为同一回合）
+          const now = Date.now();
+          if (!sk.lastTime || now - sk.lastTime > 1500) sk.actionCount++;
+          sk.lastTime = now;
+          if (!sk.firstTime) sk.firstTime = now;
+          sk.averageDamage = sk.actionCount > 0 ? sk.totalDamage / sk.actionCount : 0;
         }
       }
-
-      seq.isProcessing = false;
-      tracker.delete(uuid);
+      // 处理完后清空已配对的事件（floatText 和所有 damage）
+      seq.events = [];
+      processed = true;
     }
+
+    seq.isProcessing = false;
+    return processed;
   }
 
   private handleCastSkill(msg: any): void {
@@ -495,6 +538,8 @@ class BattleStatsManager extends BaseFeature {
 
   private recordDamage(uuid: string, ps: PlayerStats, skillDisplayName: string, analysis: { totalDamage: number; maxDamage: number }): void {
     const now = Date.now();
+
+    // console.log(`[战斗统计] 伤害记录: user=${uuid}, skill=${skillDisplayName}, damage=${analysis.totalDamage}`);
 
     // source → skill 映射（用于关联 lossMp）
     this.sourceToSkillMap.set(uuid, { skillDisplayName, timestamp: now });
@@ -596,7 +641,7 @@ function BattleStatsModal({ isOpen, onClose, manager }: BattleStatsModalProps) {
 
   useEffect(() => {
     manager.setRenderCallback(forceUpdate);
-    return () => manager.setRenderCallback(() => {});
+    return () => manager.setRenderCallback(() => { });
   }, [manager, forceUpdate]);
 
   // 运行时间定时刷新
