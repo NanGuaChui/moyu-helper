@@ -90,9 +90,7 @@ class DataCacheManager {
         this.notifyDataReady('tavern');
       }
       if (skills) {
-        this.learnedSkillIds = new Set(
-          (skills as Array<{ skillId: string }>).map((s) => s.skillId),
-        );
+        this.learnedSkillIds = new Set((skills as Array<{ skillId: string }>).map((s) => s.skillId));
         logger.info(`已缓存 ${this.learnedSkillIds.size} 个已学习技能`);
       }
     });

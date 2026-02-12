@@ -61,8 +61,6 @@ declare const GM: {
   };
 };
 
-
-
 // Vite 环境变量类型声明
 interface ImportMetaEnv {
   readonly DEV: boolean;

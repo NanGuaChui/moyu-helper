@@ -61,9 +61,11 @@ async function loadFeatureFlags<K extends keyof typeof appConfig>(keys: K[]): Pr
 async function getMenuButtons(): Promise<PanelButton[]> {
   const flags = await loadFeatureFlags(MENU_BUTTON_DEFS.map((d) => d.flag));
 
-  const buttons: PanelButton[] = MENU_BUTTON_DEFS
-    .filter((def) => flags[def.flag])
-    .map(({ text, onClick, order }) => ({ text, onClick, order }));
+  const buttons: PanelButton[] = MENU_BUTTON_DEFS.filter((def) => flags[def.flag]).map(({ text, onClick, order }) => ({
+    text,
+    onClick,
+    order,
+  }));
 
   // 资源监控按钮（由模块自身控制可见性）
   const resourceButton = resourceMonitor.getButton();
