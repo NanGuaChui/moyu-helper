@@ -551,8 +551,8 @@ async function computePlanDetail(entry: PlanEntry): Promise<PlanItemDetail> {
 }
 
 function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
-  // 模式：根据 initialEntries 自动判断
-  const initialMode: CraftMode = initialEntries && initialEntries.length > 1 ? 'multiple' : 'single';
+  // 模式：根据 initialEntries 自动判断（有初始条目时总是使用多物品模式以支持计划功能）
+  const initialMode: CraftMode = initialEntries && initialEntries.length > 0 ? 'multiple' : 'single';
   const [mode, setMode] = useState<CraftMode>(initialMode);
 
   // 添加区域状态
