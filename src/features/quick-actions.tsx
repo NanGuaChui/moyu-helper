@@ -24,12 +24,17 @@ interface MessageConfig {
   steps: MessageStep[];
 }
 
-/** 获取库存步骤（从缓存读取） */
+/** 获取库存步骤（首次调用时强制刷新，后续使用缓存） */
 function getInventoryStep(): MessageStep {
   return {
     type: 'refresh-inventory',
     getData: async () => {
-      const inventory = await dataCache.getAsync('inventory');
+      // 如果本次弹窗会话尚未刷新库存，则强制刷新一次
+      const forceRefresh = !quickActions.inventoryRefreshedThisSession;
+      const inventory = await dataCache.getAsync('inventory', forceRefresh);
+      if (forceRefresh) {
+        quickActions.inventoryRefreshedThisSession = true;
+      }
       return inventory; // 返回库存数据，供后续步骤使用
     },
   };
@@ -387,6 +392,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
 class QuickActions extends BaseFeature {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
+  inventoryRefreshedThisSession = false; // 标记本次弹窗会话是否已刷新库存
 
   protected onInit(): void {
     logger.info('快捷功能初始化完成');
@@ -406,8 +412,8 @@ class QuickActions extends BaseFeature {
       document.body.appendChild(this.container);
     }
 
-    // 打开弹窗时强制刷新一次库存，后续步骤直接使用缓存
-    await dataCache.getAsync('inventory', true);
+    // 重置库存刷新标志，让getInventoryStep在首次调用时刷新
+    this.inventoryRefreshedThisSession = false;
 
     this.isOpen = true;
     this.render();
