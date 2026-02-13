@@ -10,6 +10,7 @@ import { Modal, Button, Card, Section } from '@/ui/components';
 import type { Unsubscribe } from '@/types';
 import type { PlayerStats, SkillStats, BattleMeta, GlobalPlayerInfo, SummonInfo } from '@/types/battle-stats';
 import { getSkillName, isZeroDamageSkill, findSkillIdByName } from '@/config/skill-defs';
+import { throttle } from '@/utils';
 
 // ── 技能名称缓存 ──────────────────────────────────────────────
 const skillNameCache = new Map<string, string>();
@@ -112,30 +113,35 @@ class BattleStatsManager extends BaseFeature {
   playerStats = new Map<string, PlayerStats>();
   battleMeta: BattleMeta = { startTime: null, totalActions: 0, totalWaves: 0 };
 
-  // UI 更新防抖
-  private updateTimer: ReturnType<typeof setTimeout> | null = null;
+  // UI 更新节流
   private renderCallback: (() => void) | null = null;
+  private throttledUpdate: () => void;
 
   // progress toast
   private static readonly PROGRESS_ID = 'battle-stats-progress';
   private progressTimer: ReturnType<typeof setInterval> | null = null;
 
-  // 日志拦截
+  // sourceToSkillMap 清理定时器
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
+
+  // 日志拦截（最多保存1000条）
+  private static readonly MAX_LOGS = 2000;
   private eventLogs: Array<{ event: string; timestamp: number; data: any }> = [];
   private isLogging = false;
+
+  constructor() {
+    super();
+    // 使用公共的 throttle 函数创建节流更新方法
+    this.throttledUpdate = throttle(() => {
+      if (this.isOpen) this.renderCallback?.();
+    }, 1500);
+  }
 
   protected onInit(): void {}
   protected onReload(): void {}
 
   setRenderCallback(cb: () => void): void {
     this.renderCallback = cb;
-  }
-
-  private debouncedUpdate(): void {
-    if (this.updateTimer) clearTimeout(this.updateTimer);
-    this.updateTimer = setTimeout(() => {
-      if (this.isOpen) this.renderCallback?.();
-    }, 500);
   }
 
   // ── 监听控制 ─────────────────────────────────────────────────
@@ -182,6 +188,14 @@ class BattleStatsManager extends BaseFeature {
 
     if (!this.battleMeta.startTime) this.battleMeta.startTime = Date.now();
 
+    // 启动定期清理定时器（每5秒清理一次过期的 sourceToSkillMap）
+    this.cleanupTimer = setInterval(() => {
+      const now = Date.now();
+      for (const [k, v] of this.sourceToSkillMap) {
+        if (now - v.timestamp > 5000) this.sourceToSkillMap.delete(k);
+      }
+    }, 5000);
+
     // 通知服务器开启详细战斗日志推送（离开战斗页面后仍能收到事件）
     void this.setBattleLogPreference(true);
     logger.success('[战斗统计] 开始监听');
@@ -193,6 +207,13 @@ class BattleStatsManager extends BaseFeature {
     this.unsubscribers.forEach((fn) => fn());
     this.unsubscribers = [];
     this.hideProgressToast();
+
+    // 清理定时器
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+    }
+
     void this.setBattleLogPreference(false);
     logger.info('[战斗统计] 停止监听');
   }
@@ -213,6 +234,10 @@ class BattleStatsManager extends BaseFeature {
   // ── 日志拦截与导出 ───────────────────────────────────────────
   private logEvent(event: string, msg: any): void {
     if (!this.isLogging) return;
+    // 循环缓冲区：限制最多2000条日志
+    if (this.eventLogs.length >= BattleStatsManager.MAX_LOGS) {
+      this.eventLogs.shift(); // 移除最旧的日志
+    }
     this.eventLogs.push({ event, timestamp: Date.now(), data: structuredClone(msg) });
   }
 
@@ -235,12 +260,66 @@ class BattleStatsManager extends BaseFeature {
       return;
     }
 
+    if (this.eventLogs.length >= BattleStatsManager.MAX_LOGS) {
+      toast.info(`日志已达上限(${BattleStatsManager.MAX_LOGS}条)，仅导出最近的记录`);
+    }
+
+    // 计算统计汇总（和 UI 显示一致）
+    const players = Array.from(this.playerStats.entries()).sort(([, a], [, b]) => b.totalDamage - a.totalDamage);
+    const totalDamage = players.reduce((sum, [, p]) => sum + p.totalDamage, 0);
+    const totalActions = this.battleMeta.totalActions;
+    const runTime = this.battleMeta.startTime ? Date.now() - this.battleMeta.startTime : 0;
+
+    // 转换玩家统计数据为可读格式（包含计算后的指标）
+    const playerStatsFormatted = players.map(([uuid, stats]) => {
+      const dpa = stats.totalActions > 0 ? stats.totalDamage / stats.totalActions : 0;
+      const manaEfficiency = stats.totalLossMP > 0 ? (stats.totalRestoreMP / stats.totalLossMP) * 100 : 0;
+      const skills = Object.entries(stats.skills)
+        .sort(([, a], [, b]) => b.totalDamage - a.totalDamage)
+        .map(([name, skill]) => ({
+          name,
+          totalDamage: skill.totalDamage,
+          actionCount: skill.actionCount,
+          averageDamage: skill.averageDamage,
+          maxDamage: skill.maxDamage,
+          totalLossMP: skill.totalLossMP,
+        }));
+
+      return {
+        uuid,
+        name: stats.name,
+        totalDamage: stats.totalDamage,
+        totalActions: stats.totalActions,
+        dpa: Math.round(dpa),
+        totalReceivedDamage: stats.totalReceivedDamage,
+        totalLossMP: stats.totalLossMP,
+        totalRestoreMP: stats.totalRestoreMP,
+        manaEfficiency: manaEfficiency.toFixed(1) + '%',
+        totalHeal: stats.totalHeal,
+        totalSSCC: stats.totalSSCC,
+        skills,
+      };
+    });
+
     const logData = {
       exportTime: new Date().toISOString(),
-      totalEvents: this.eventLogs.length,
+      // 统计汇总（方便验证）
+      summary: {
+        totalDamage,
+        totalActions,
+        totalWaves: this.battleMeta.totalWaves,
+        runTimeMs: runTime,
+        runTimeFormatted: formatTime(runTime),
+        playerCount: players.length,
+      },
+      // 玩家详细统计（按伤害排序，和 UI 一致）
+      playerStats: playerStatsFormatted,
+      // 原始数据
       battleMeta: this.battleMeta,
       playerCache: [...this.playerCache.values()],
       summonToOwnerMap: [...this.summonToOwnerMap.values()],
+      // 事件日志
+      totalEvents: this.eventLogs.length,
       events: this.eventLogs,
     };
 
@@ -269,11 +348,17 @@ class BattleStatsManager extends BaseFeature {
     this.playerUuidSet.clear();
     this.summonToOwnerMap.clear();
     this.sourceToSkillMap.clear();
-    this.floatDamageTracker.clear();
-    this.darkBookTracker.clear();
-    this.lumenBookTracker.clear();
+
+    // 清理所有 tracker 的定时器
+    for (const tracker of [this.floatDamageTracker, this.darkBookTracker, this.lumenBookTracker]) {
+      for (const [, seq] of tracker) {
+        if ((seq as any).processTimer) clearTimeout((seq as any).processTimer);
+      }
+      tracker.clear();
+    }
+
     this.battleMeta = { startTime: this.isListening ? Date.now() : null, totalActions: 0, totalWaves: 0 };
-    this.debouncedUpdate();
+    this.throttledUpdate();
   }
 
   // ── 玩家管理 ─────────────────────────────────────────────────
@@ -285,7 +370,7 @@ class BattleStatsManager extends BaseFeature {
     const info = this.playerCache.get(uuid);
     const isPlayer = info?.isPlayer ?? false;
     const isCurrentUser = uuid === ws.user?.uuid;
-    
+
     if (!isPlayer && !isCurrentUser) return null;
 
     if (!this.playerStats.has(uuid)) {
@@ -303,24 +388,20 @@ class BattleStatsManager extends BaseFeature {
     const battleInfo = msg.payload?.data?.battleInfo;
     if (!battleInfo?.members) return;
 
-    // 初始化玩家映射
+    // 单次遍历同时处理玩家映射和召唤物映射（性能优化）
     this.playerUuidSet.clear();
     for (const m of battleInfo.members) {
       if (!m?.uuid || !m?.name) continue;
+
+      // 缓存玩家信息
       this.playerCache.set(m.uuid, { name: m.name, uuid: m.uuid, isPlayer: m.isPlayer ?? false });
-      if (m.isPlayer) this.playerUuidSet.add(m.uuid);
-    }
 
-    // 调试日志：查看缓存的玩家
-    // console.log('[战斗统计] playerCache after fullInfo:', Array.from(this.playerCache.entries()).map(([k, v]) => ({
-    //   uuid: k,
-    //   name: v.name,
-    //   isPlayer: v.isPlayer
-    // })));
-
-    // 建立召唤物映射
-    for (const m of battleInfo.members) {
-      if (m?.summonedBy && !m.isPlayer && this.playerUuidSet.has(m.summonedBy)) {
+      // 收集玩家UUID
+      if (m.isPlayer) {
+        this.playerUuidSet.add(m.uuid);
+      }
+      // 建立召唤物映射（在同一次遍历中处理）
+      else if (m.summonedBy && this.playerUuidSet.has(m.summonedBy)) {
         this.summonToOwnerMap.set(m.uuid, {
           ownerUuid: m.summonedBy,
           summonName: m.name ?? '未知召唤物',
@@ -336,12 +417,12 @@ class BattleStatsManager extends BaseFeature {
       this.ensurePlayerStats(actor.uuid, actor.name);
     }
 
-    this.debouncedUpdate();
+    this.throttledUpdate();
   }
 
   private handleStartBattle(_msg: any): void {
     this.battleMeta.totalWaves++;
-    this.debouncedUpdate();
+    this.throttledUpdate();
   }
 
   private handleDealDamage(msg: any): void {
@@ -362,17 +443,12 @@ class BattleStatsManager extends BaseFeature {
 
     if (!user) return;
 
-    // 召唤物伤害归属
+    // 召唤物伤害归属（不修改原始对象）
+    let effectiveSkillId = targets[0]?.causeBy?.skillId;
     const summon = this.summonToOwnerMap.get(user);
     if (summon) {
-      const summonName = summon.summonName;
+      effectiveSkillId = summon.summonName; // 使用局部变量记录
       user = summon.ownerUuid;
-      for (const t of targets) {
-        if (t) {
-          if (!t.causeBy) t.causeBy = {};
-          t.causeBy.skillId = summonName;
-        }
-      }
     }
 
     // 回响铃饰处理
@@ -385,17 +461,16 @@ class BattleStatsManager extends BaseFeature {
     const ps = this.ensurePlayerStats(user);
     if (!ps) return;
 
-    const skillId = targets[0]?.causeBy?.skillId;
-
-    if (!skillId) {
+    // 使用之前记录的 effectiveSkillId（可能来自召唤物映射）
+    if (!effectiveSkillId) {
       // 无技能ID → 可能是浮动伤害追踪
       this.handleTrackerDamage(user, msg.payload?.data, targets);
       return;
     }
 
     // 检查是否是零伤害技能 + 光明法典
-    const displayName = getSkillDisplayName(skillId);
-    if (isZeroDamageSkill(skillId) && this.isLumenBookEvent) {
+    const displayName = getSkillDisplayName(effectiveSkillId);
+    if (isZeroDamageSkill(effectiveSkillId) && this.isLumenBookEvent) {
       this.appendToTracker(this.lumenBookTracker, user, 'damage', msg.payload?.data);
       this.isLumenBookEvent = false;
       return;
@@ -438,7 +513,31 @@ class BattleStatsManager extends BaseFeature {
       }
     }
 
-    seq.events.push({ type, data: JSON.parse(JSON.stringify(data)), timestamp: Date.now() });
+    // 优化：只提取需要的关键字段而非深克隆整个对象
+    let extractedData: any;
+    if (type === 'floatText') {
+      // floatText 只需要 data.unit 和 data.text
+      extractedData = {
+        data: {
+          unit: data?.data?.unit,
+          text: data?.data?.text,
+        },
+      };
+    } else {
+      // damage 只需要 target 数组（浅拷贝数组和对象）
+      const targets = data?.target;
+      extractedData = {
+        target: targets
+          ? targets.map((t: any) => ({
+              unit: t?.unit,
+              value: t?.value,
+              shieldDamage: t?.shieldDamage,
+            }))
+          : [],
+      };
+    }
+
+    seq.events.push({ type, data: extractedData, timestamp: Date.now() });
 
     // 如果是 damage 事件且已有 floatText，延迟 100ms 后处理（等待更多 damage 事件到达）
     if (type === 'damage') {
@@ -584,7 +683,7 @@ class BattleStatsManager extends BaseFeature {
     sk.lastTime = now;
     if (!sk.firstTime) sk.firstTime = now;
     ps.totalSSCC++;
-    this.debouncedUpdate();
+    this.throttledUpdate();
   }
 
   private handleLossMp(msg: any): void {
@@ -644,11 +743,8 @@ class BattleStatsManager extends BaseFeature {
     // console.log(`[战斗统计] 伤害记录: user=${uuid}, skill=${skillDisplayName}, damage=${analysis.totalDamage}`);
 
     // source → skill 映射（用于关联 lossMp）
+    // 注：过期清理已移至定期批量清理（每5秒），不再每次调用时遍历
     this.sourceToSkillMap.set(uuid, { skillDisplayName, timestamp: now });
-    // 清理过期映射
-    for (const [k, v] of this.sourceToSkillMap) {
-      if (now - v.timestamp > 5000) this.sourceToSkillMap.delete(k);
-    }
 
     ps.totalDamage += analysis.totalDamage;
     ps.totalActions++;
@@ -664,7 +760,7 @@ class BattleStatsManager extends BaseFeature {
     sk.lastTime = now;
     sk.averageDamage = sk.actionCount > 0 ? sk.totalDamage / sk.actionCount : 0;
 
-    this.debouncedUpdate();
+    this.throttledUpdate();
   }
 
   // ── Modal 控制 ──────────────────────────────────────────────
