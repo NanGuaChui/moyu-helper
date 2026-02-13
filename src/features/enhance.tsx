@@ -306,6 +306,15 @@ class EnhanceManager extends BaseFeature {
       this.enhanceTimer = null;
     }
     this.isAutoEnhancing = false;
+
+    // 自动强化停止时，同时停止监听
+    if (this.isListening) {
+      this.isListening = false;
+      this.unsubscribers.forEach((fn) => fn());
+      this.unsubscribers = [];
+      logger.info('[强化助手] 自动强化停止，已同时停止监听');
+    }
+
     this.hideProgressToast();
     if (isFinished) {
       toast.success(`🎉 强化完成！${getItemDisplayName(this.currentItem?.resourceId || '')}`);
