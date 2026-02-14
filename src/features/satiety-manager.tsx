@@ -15,8 +15,6 @@ interface Kitty {
   uuid: string;
   name: string;
   mood: number; // 心情
-  maxMood: number; // 最大心情
-  owner?: string; // 所有者UUID
 }
 
 class SatietyManager extends BaseFeature {
