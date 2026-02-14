@@ -105,10 +105,33 @@ class TavernExpertManager extends BaseFeature {
 
     try {
       switch (action) {
-        case 'hire':
-          await ws.request('tavern:hireExpert', { catId: expertId, hours: 1 });
-          toast.success(`✅ ${expertName}已聘用`);
+        case 'hire': {
+          const res = await ws.request('tavern:hireExpert', { catId: expertId, hours: 1 });
+
+          // 检查聘用后的剩余时间
+          if (res?.payload?.data?.record?.end_date) {
+            const endTime = new Date(res.payload.data.record.end_date).getTime();
+            const now = Date.now();
+            const remainingMs = endTime - now;
+            const remainingHours = remainingMs / (1000 * 60 * 60);
+
+            if (remainingHours < 1) {
+              const remainingMinutes = Math.floor(remainingMs / 60000);
+              try {
+                await ws.request('tavern:renewExpert', { catId: expertId, hours: 1 });
+                toast.success(`✅ ${expertName}已聘用，剩余${remainingMinutes}分钟，已自动续约1小时`);
+              } catch (renewError) {
+                logger.error(`${expertName}续约失败`, renewError);
+                toast.warning(`✅ ${expertName}已聘用，但自动续约失败: ${getWsErrorMessage(renewError)}`);
+              }
+            } else {
+              toast.success(`✅ ${expertName}已聘用`);
+            }
+          } else {
+            toast.success(`✅ ${expertName}已聘用`);
+          }
           break;
+        }
         case 'pause':
           await ws.request('tavern:pause', { catId: expertId });
           toast.success(`✅ ${expertName}已暂停`);
@@ -125,8 +148,13 @@ class TavernExpertManager extends BaseFeature {
 
             if (remainingHours < 1) {
               const remainingMinutes = Math.floor(remainingMs / 60000);
-              await ws.request('tavern:renewExpert', { catId: expertId, hours: 1 });
-              toast.success(`✅ ${expertName}已启用，剩余${remainingMinutes}分钟，已自动续约1小时`);
+              try {
+                await ws.request('tavern:renewExpert', { catId: expertId, hours: 1 });
+                toast.success(`✅ ${expertName}已启用，剩余${remainingMinutes}分钟，已自动续约1小时`);
+              } catch (renewError) {
+                logger.error(`${expertName}续约失败`, renewError);
+                toast.warning(`✅ ${expertName}已启用，但自动续约失败: ${getWsErrorMessage(renewError)}`);
+              }
             } else {
               toast.success(`✅ ${expertName}已启用`);
             }

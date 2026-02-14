@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from 'preact/hooks';
 import { BaseFeature, ws, logger, toast } from '@/core';
 import { Modal, Button, Card, Row, Input } from '@/ui/components';
 import { getResourceDetail } from '@/utils/resource';
+import { appConfig } from '@/config/gm-settings';
 import type { Unsubscribe } from '@/types';
 
 // ── 工具函数 ───────────────────────────────────────────────────
@@ -86,11 +87,63 @@ class EnhanceManager extends BaseFeature {
   private static readonly PROGRESS_ID = 'enhance-progress';
   private progressTimer: ReturnType<typeof setInterval> | null = null;
 
-  protected onInit(): void {}
+  protected async onInit(): Promise<void> {
+    await this.loadCachedConfig();
+  }
+
   protected onReload(): void {}
 
   setRenderCallback(cb: () => void): void {
     this.renderCallback = cb;
+  }
+
+  // ── 缓存管理 ─────────────────────────────────────────────────
+
+  private async loadCachedConfig(): Promise<void> {
+    try {
+      const config = await appConfig.ENHANCE_CONFIG.get();
+      if (config.item) {
+        this.currentItem = { resourceId: config.item };
+        logger.info(`[强化助手] 加载缓存物品: ${getItemDisplayName(config.item)}`);
+      }
+      this.targetLevel = config.targetLevel;
+      this.interval = config.interval;
+      this.batchCount = config.batchCount;
+      this.protectMode = config.protectMode;
+      this.protectStartLevel = config.protectStartLevel;
+
+      // 触发 UI 更新
+      this.renderCallback?.();
+    } catch (err) {
+      logger.error('[强化助手] 加载缓存失败', err);
+    }
+  }
+
+  private async saveConfig(): Promise<void> {
+    try {
+      await appConfig.ENHANCE_CONFIG.set({
+        item: this.currentItem?.resourceId || null,
+        targetLevel: this.targetLevel,
+        interval: this.interval,
+        batchCount: this.batchCount,
+        protectMode: this.protectMode,
+        protectStartLevel: this.protectStartLevel,
+      });
+    } catch (err) {
+      logger.error('[强化助手] 保存配置失败', err);
+    }
+  }
+
+  async clearCachedItem(): Promise<void> {
+    try {
+      const config = await appConfig.ENHANCE_CONFIG.get();
+      await appConfig.ENHANCE_CONFIG.set({ ...config, item: null });
+      this.currentItem = null;
+      logger.info('[强化助手] 已清除缓存物品');
+      this.renderCallback?.();
+    } catch (err) {
+      logger.error('[强化助手] 清除缓存失败', err);
+    }
   }
 
   // ── 监听控制 ─────────────────────────────────────────────────
@@ -155,6 +208,8 @@ class EnhanceManager extends BaseFeature {
 
     // 更新当前物品
     this.currentItem = { resourceId: resultId };
+    // 保存到缓存
+    this.saveConfig();
 
     // 更新统计
     if (this.isAutoEnhancing || this.enhanceStats.baseItem === baseItem) {
@@ -233,6 +288,12 @@ class EnhanceManager extends BaseFeature {
 
   startAutoEnhance(): void {
     if (this.isAutoEnhancing || !this.currentItem) return;
+
+    // 如果还没有开始监听，自动开始监听
+    if (!this.isListening) {
+      this.startListening();
+    }
+
     this.isAutoEnhancing = true;
     this.initStats(this.currentItem.resourceId, this.targetLevel);
     this.scheduleNextEnhance();
@@ -245,6 +306,15 @@ class EnhanceManager extends BaseFeature {
       this.enhanceTimer = null;
     }
     this.isAutoEnhancing = false;
+
+    // 自动强化停止时，同时停止监听
+    if (this.isListening) {
+      this.isListening = false;
+      this.unsubscribers.forEach((fn) => fn());
+      this.unsubscribers = [];
+      logger.info('[强化助手] 自动强化停止，已同时停止监听');
+    }
+
     this.hideProgressToast();
     if (isFinished) {
       toast.success(`🎉 强化完成！${getItemDisplayName(this.currentItem?.resourceId || '')}`);
@@ -313,23 +383,33 @@ class EnhanceManager extends BaseFeature {
 
   setTargetLevel(v: number): void {
     this.targetLevel = Math.max(1, Math.min(15, v));
+    this.saveConfig();
   }
   setInterval(v: number): void {
     this.interval = Math.max(100, v);
+    this.saveConfig();
   }
   setBatchCount(v: number): void {
     this.batchCount = Math.max(1, v);
+    this.saveConfig();
   }
   setProtectMode(v: ProtectMode): void {
     this.protectMode = v;
+    this.saveConfig();
   }
   setProtectStartLevel(v: number): void {
     this.protectStartLevel = Math.max(0, Math.min(15, v));
+    this.saveConfig();
   }
 
   // ── Modal 控制 ──────────────────────────────────────────────
 
-  openModal(): void {
+  async openModal(): Promise<void> {
+    // 确保已初始化（懒加载）
+    if (!this.isInitialized) {
+      await this.init();
+    }
+
     if (!this.container) {
       this.container = document.createElement('div');
       document.body.appendChild(this.container);
@@ -353,7 +433,7 @@ class EnhanceManager extends BaseFeature {
     if (this.isAutoEnhancing) {
       const s = this.enhanceStats;
       const name = getItemDisplayName(s.baseItem);
-      return `🔨 强化中 | ${name} +${s.currentLevel} → +${s.targetLevel} | 成功 ${s.totalSuccess}/${s.totalAttempts}`;
+      return `🔨 强化中 | ${name} +${s.currentLevel} → +${s.targetLevel}`;
     }
     const itemName = this.currentItem ? getItemDisplayName(this.currentItem.resourceId) : '';
     return `🔨 监听中${itemName ? ` | ${itemName}` : ''} | 等待强化事件...`;
@@ -445,6 +525,19 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
         <div style={{ fontSize: '14px', color: item ? '#f59e0b' : '#999', fontWeight: item ? '600' : '400' }}>
           {item ? getItemDisplayName(item.resourceId) : '等待监听强化结果...'}
         </div>
+        {item && (
+          <>
+            <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>💾 已缓存，下次打开将自动加载</div>
+            <Button
+              variant="secondary"
+              onClick={() => manager.clearCachedItem()}
+              disabled={isAutoEnhancing}
+              style={{ fontSize: '11px', padding: '4px 8px', marginTop: '8px', width: '100%' }}
+            >
+              清除
+            </Button>
+          </>
+        )}
       </Card>
 
       {/* 强化设置 - 监听到物品后才显示 */}
@@ -460,25 +553,23 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
                 manager.setTargetLevel(parseInt(v) || 5);
                 forceUpdate();
               }}
-              style={{ width: '80px' }}
+              style={{ width: '116px' }}
               disabled={isAutoEnhancing}
             />
           </Row>
           <Row label="强化间隔">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <Input
-                type="number"
-                value={config.interval}
-                min={100}
-                onChange={(v) => {
-                  manager.setInterval(parseInt(v) || 3000);
-                  forceUpdate();
-                }}
-                style={{ width: '80px' }}
-                disabled={isAutoEnhancing}
-              />
-              <span style={{ fontSize: '12px', color: '#666' }}>ms</span>
-            </div>
+            <Input
+              type="number"
+              value={config.interval}
+              min={100}
+              onChange={(v) => {
+                manager.setInterval(parseInt(v) || 3000);
+                forceUpdate();
+              }}
+              style={{ width: '116px' }}
+              disabled={isAutoEnhancing}
+              suffix="ms"
+            />
           </Row>
           <Row label="批量次数">
             <Input
@@ -489,7 +580,7 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
                 manager.setBatchCount(parseInt(v) || 1);
                 forceUpdate();
               }}
-              style={{ width: '80px' }}
+              style={{ width: '116px' }}
               disabled={isAutoEnhancing}
             />
           </Row>
@@ -542,7 +633,7 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
                   manager.setProtectStartLevel(parseInt(v) || 3);
                   forceUpdate();
                 }}
-                style={{ width: '80px' }}
+                style={{ width: '116px' }}
                 disabled={isAutoEnhancing}
               />
             </Row>
@@ -553,11 +644,7 @@ function EnhanceModal({ isOpen, onClose, manager }: EnhanceModalProps) {
       {/* 开始/停止强化 */}
       {item && (
         <div style={{ marginBottom: '10px' }}>
-          <Button
-            variant={isAutoEnhancing ? 'danger' : 'kitty'}
-            onClick={handleToggleEnhance}
-            disabled={!item || !isListening}
-          >
+          <Button variant={isAutoEnhancing ? 'danger' : 'kitty'} onClick={handleToggleEnhance} disabled={!item}>
             {isAutoEnhancing ? '⏹ 停止强化' : '🚀 开始强化'}
           </Button>
         </div>

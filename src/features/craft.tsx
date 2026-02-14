@@ -33,6 +33,9 @@ interface MissingResource {
   stock: number;
 }
 
+/** 制造模式：单个物品或多个物品 */
+type CraftMode = 'single' | 'multiple';
+
 /** 制造计划条目 */
 interface PlanEntry {
   actionId: string;
@@ -76,7 +79,6 @@ async function addTasksToQueue(tasks: CraftStep[], kittyUuid?: string): Promise<
     }
   }
 }
-
 
 // ==================== 制造管理器 ====================
 
@@ -182,7 +184,7 @@ class CraftManager extends BaseFeature {
     const calculating = new Set<string>();
 
     const calculate = (id: string, count: number) => {
-      if (calculating.has(id)) return;  // 防止循环依赖
+      if (calculating.has(id)) return; // 防止循环依赖
       calculating.add(id);
 
       const current = this.findByActionId(id);
@@ -200,10 +202,7 @@ class CraftManager extends BaseFeature {
             const reward = producer.rewards.find((r) => r.itemId === dep.itemId)!;
             const times = Math.ceil((dep.count * count) / reward.count);
             // 同一生产者的多个依赖，取最大次数
-            producerRequests.set(
-              producer.actionId,
-              Math.max(producerRequests.get(producer.actionId) || 0, times)
-            );
+            producerRequests.set(producer.actionId, Math.max(producerRequests.get(producer.actionId) || 0, times));
           }
         }
       }
@@ -213,7 +212,7 @@ class CraftManager extends BaseFeature {
         calculate(producerId, producerCount);
       }
 
-      calculating.delete(id);  // 允许从其他路径再次访问
+      calculating.delete(id); // 允许从其他路径再次访问
     };
 
     const sort = (id: string) => {
@@ -239,7 +238,10 @@ class CraftManager extends BaseFeature {
     return plan;
   }
 
-  async optimizePlan(plan: CraftStep[], targetActionId: string): Promise<{
+  async optimizePlan(
+    plan: CraftStep[],
+    targetActionId: string,
+  ): Promise<{
     optimized: CraftStep[];
     missingResources: MissingResource[];
   }> {
@@ -282,11 +284,16 @@ class CraftManager extends BaseFeature {
               const stock = stockMap.get(dep.itemId) || 0;
               const currentNeed = resourceNeeds.get(dep.itemId) || 0;
               if (stock < currentNeed) {
-                const existing = missingResources.find(m => m.itemId === dep.itemId);
+                const existing = missingResources.find((m) => m.itemId === dep.itemId);
                 if (existing) {
                   existing.need = Math.max(existing.need, currentNeed);
                 } else {
-                  missingResources.push({ itemId: dep.itemId, label: dep.label || dep.itemId, need: currentNeed, stock });
+                  missingResources.push({
+                    itemId: dep.itemId,
+                    label: dep.label || dep.itemId,
+                    need: currentNeed,
+                    stock,
+                  });
                 }
               }
             }
@@ -321,7 +328,7 @@ class CraftManager extends BaseFeature {
             const stock = stockMap.get(dep.itemId) || 0;
             const currentNeed = resourceNeeds.get(dep.itemId) || 0;
             if (stock < currentNeed) {
-              const existing = missingResources.find(m => m.itemId === dep.itemId);
+              const existing = missingResources.find((m) => m.itemId === dep.itemId);
               if (existing) {
                 existing.need = Math.max(existing.need, currentNeed);
               } else {
@@ -514,7 +521,6 @@ class CraftManager extends BaseFeature {
 
 export const craftManager = new CraftManager();
 
-
 // ==================== 制造面板 ====================
 
 interface CraftPanelProps {
@@ -547,6 +553,10 @@ async function computePlanDetail(entry: PlanEntry): Promise<PlanItemDetail> {
 }
 
 function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
+  // 模式：根据 initialEntries 自动判断（有初始条目时总是使用多物品模式以支持计划功能）
+  const initialMode: CraftMode = initialEntries && initialEntries.length > 0 ? 'multiple' : 'single';
+  const [mode, setMode] = useState<CraftMode>(initialMode);
+
   // 添加区域状态
   const [selectedItem, setSelectedItem] = useState('');
   const [addCount, setAddCount] = useState(1);
@@ -563,10 +573,7 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
   const [playerDefaultTasks, setPlayerDefaultTasks] = useState<string[]>(appConfig.PLAYER_DEFAULT_TASKS.defaultValue);
   const [kittyDefaultTasks, setKittyDefaultTasks] = useState<Record<number, string>>({});
 
-  const hasKittyBanned = useMemo(
-    () => craftManager.hasKittyBannedItem(planEntries),
-    [planEntries],
-  );
+  const hasKittyBanned = useMemo(() => craftManager.hasKittyBannedItem(planEntries), [planEntries]);
 
   const itemOptions = craftManager.getCraftCategories().map((category) => ({
     label: category.label,
@@ -623,8 +630,46 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
     debouncedComputeDetails(planEntries);
   }, [planEntries, debouncedComputeDetails]);
 
-  // 添加物品到计划
+  // 单个物品模式：自动预览选中的物品
+  useEffect(() => {
+    if (mode === 'single' && selectedItem && addCount > 0) {
+      setPlanEntries([{ actionId: selectedItem, count: addCount }]);
+    } else if (mode === 'single' && !selectedItem) {
+      setPlanEntries([]);
+    }
+  }, [mode, selectedItem, addCount]);
+
+  // 模式切换处理
+  const handleModeChange = useCallback(
+    (newMode: CraftMode) => {
+      if (newMode === 'single' && planEntries.length > 1) {
+        toast.warning('已有多个物品时无法切换到单个模式，请先清空列表');
+        return;
+      }
+
+      if (newMode === 'single' && planEntries.length === 1) {
+        // 保持当前物品，更新选择状态
+        const entry = planEntries[0];
+        setSelectedItem(entry.actionId);
+        setAddCount(entry.count);
+      }
+
+      if (newMode === 'multiple' && mode === 'single') {
+        // 从单个切换到多个，保持当前选择的物品
+        if (selectedItem && addCount > 0) {
+          setPlanEntries([{ actionId: selectedItem, count: addCount }]);
+        }
+      }
+
+      setMode(newMode);
+    },
+    [mode, planEntries, selectedItem, addCount],
+  );
+
+  // 添加物品到计划（仅多个物品模式）
   const handleAdd = useCallback(() => {
+    if (mode !== 'multiple') return;
+
     if (!selectedItem) {
       toast.warning('请先选择物品');
       return;
@@ -638,23 +683,19 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
       const existing = prev.find((e) => e.actionId === selectedItem);
       if (existing) {
         // 合并数量
-        return prev.map((e) =>
-          e.actionId === selectedItem ? { ...e, count: e.count + addCount } : e,
-        );
+        return prev.map((e) => (e.actionId === selectedItem ? { ...e, count: e.count + addCount } : e));
       }
       return [...prev, { actionId: selectedItem, count: addCount }];
     });
 
     // 重置添加区域
     setAddCount(1);
-  }, [selectedItem, addCount]);
+  }, [mode, selectedItem, addCount]);
 
   // 修改计划中某个物品的数量
   const handleEntryCountChange = useCallback((actionId: string, newCount: number) => {
     const count = Math.max(1, newCount || 1);
-    setPlanEntries((prev) =>
-      prev.map((e) => (e.actionId === actionId ? { ...e, count } : e)),
-    );
+    setPlanEntries((prev) => prev.map((e) => (e.actionId === actionId ? { ...e, count } : e)));
   }, []);
 
   // 删除计划中的物品
@@ -686,7 +727,14 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
           toast.warning('请先添加要制造的物品');
           return;
         }
-        await craftManager.craftBatchWithKitty(kittyUuid, kittyName, kittyIndex, planEntries, clearTasks, addDefaultTasks);
+        await craftManager.craftBatchWithKitty(
+          kittyUuid,
+          kittyName,
+          kittyIndex,
+          planEntries,
+          clearTasks,
+          addDefaultTasks,
+        );
         onClose();
       }, 1000),
     [planEntries, clearTasks, addDefaultTasks, onClose],
@@ -751,8 +799,32 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
     [],
   );
 
+  // 禁用单个模式的条件
+  const disableSingleMode = mode === 'multiple' && planEntries.length > 1;
+
   return (
     <>
+      {/* 模式切换 */}
+      <FormGroup label="制造模式">
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <Button
+            variant={mode === 'single' ? 'primary' : 'secondary'}
+            onClick={() => handleModeChange('single')}
+            disabled={disableSingleMode}
+            style={{ flex: 1 }}
+          >
+            📦 单个物品
+          </Button>
+          <Button
+            variant={mode === 'multiple' ? 'primary' : 'secondary'}
+            onClick={() => handleModeChange('multiple')}
+            style={{ flex: 1 }}
+          >
+            📦📦 多个物品
+          </Button>
+        </div>
+      </FormGroup>
+
       {/* 上方 - 添加区域 */}
       <FormGroup label="选择物品">
         <Select value={selectedItem} onChange={setSelectedItem} options={itemOptions} placeholder="-- 请选择物品 --" />
@@ -774,15 +846,18 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
         </div>
       </FormGroup>
 
-      <Button variant="secondary" onClick={handleAdd} style={{ marginBottom: '12px' }}>
-        添加到制造计划
-      </Button>
+      {/* 仅多个物品模式显示添加按钮 */}
+      {mode === 'multiple' && (
+        <Button variant="secondary" onClick={handleAdd} style={{ marginBottom: '12px' }}>
+          添加到制造计划
+        </Button>
+      )}
 
       {/* 中间 - 制造计划预览 */}
-      <Card title="制造计划预览" style={{ minHeight: '60px' }}>
+      <Card title={mode === 'single' ? '制造预览' : '制造计划预览'} style={{ minHeight: '60px' }}>
         {planEntries.length === 0 ? (
           <div style={{ fontSize: '13px', color: '#999', textAlign: 'center', padding: '12px 0' }}>
-            请添加物品
+            {mode === 'single' ? '请选择物品' : '请添加物品'}
           </div>
         ) : (
           planEntries.map((entry) => {
@@ -792,8 +867,9 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
                 key={entry.actionId}
                 entry={entry}
                 detail={detail}
-                onCountChange={handleEntryCountChange}
-                onRemove={handleRemoveEntry}
+                onCountChange={mode === 'multiple' ? handleEntryCountChange : undefined}
+                onRemove={mode === 'multiple' ? handleRemoveEntry : undefined}
+                readOnly={mode === 'single'}
               />
             );
           })
@@ -808,7 +884,10 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
         </div>
       </FormGroup>
 
-      <Button onClick={handleCraft} disabled={craftManager.running.value || planEntries.length === 0}>
+      <Button
+        onClick={handleCraft}
+        disabled={craftManager.running.value || planEntries.length === 0 || (mode === 'single' && !selectedItem)}
+      >
         {craftManager.running.value ? '制造中...' : '开始制造'}
       </Button>
 
@@ -820,7 +899,7 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
               variant="kitty"
               onClick={() => handleKittyCraft(kitty.uuid, kitty.name || `猫咪${index + 1}`, index)}
               style={{ flex: 1 }}
-              disabled={craftManager.running.value || planEntries.length === 0}
+              disabled={craftManager.running.value || planEntries.length === 0 || (mode === 'single' && !selectedItem)}
             >
               🐱 {kitty.name || `猫咪${index + 1}`}
             </Button>
@@ -888,14 +967,14 @@ function CraftPanelContent({ onClose, initialEntries }: CraftPanelProps) {
   );
 }
 
-
 // ==================== 制造计划物品块 ====================
 
 interface PlanItemBlockProps {
   entry: PlanEntry;
   detail?: PlanItemDetail;
-  onCountChange: (actionId: string, count: number) => void;
-  onRemove: (actionId: string) => void;
+  onCountChange?: (actionId: string, count: number) => void;
+  onRemove?: (actionId: string) => void;
+  readOnly?: boolean;
 }
 
 const ITEM_BLOCK_STYLE: Record<string, any> = {
@@ -947,34 +1026,42 @@ const ITEM_BLOCK_STYLE: Record<string, any> = {
   },
 };
 
-function PlanItemBlock({ entry, detail, onCountChange, onRemove }: PlanItemBlockProps) {
+function PlanItemBlock({ entry, detail, onCountChange, onRemove, readOnly }: PlanItemBlockProps) {
   const label = detail?.label || craftManager.getItemLabel(entry.actionId);
 
   return (
     <div style={ITEM_BLOCK_STYLE.container}>
       <div style={ITEM_BLOCK_STYLE.header}>
         <span style={ITEM_BLOCK_STYLE.label}>📦 {label}</span>
-        <Input
-          type="number"
-          value={entry.count}
-          onChange={(v) => onCountChange(entry.actionId, parseInt(v) || 1)}
-          min={1}
-          style={ITEM_BLOCK_STYLE.countInput}
-        />
-        <button
-          style={ITEM_BLOCK_STYLE.deleteBtn}
-          onClick={() => onRemove(entry.actionId)}
-          onMouseEnter={(e) => {
-            (e.target as HTMLElement).style.color = '#ef4444';
-            (e.target as HTMLElement).style.background = 'rgba(239,68,68,0.1)';
-          }}
-          onMouseLeave={(e) => {
-            (e.target as HTMLElement).style.color = '#999';
-            (e.target as HTMLElement).style.background = 'none';
-          }}
-        >
-          ✕
-        </button>
+        {readOnly ? (
+          <span style={{ ...ITEM_BLOCK_STYLE.countInput, border: 'none', background: 'transparent' }}>
+            ×{entry.count}
+          </span>
+        ) : (
+          <Input
+            type="number"
+            value={entry.count}
+            onChange={(v) => onCountChange?.(entry.actionId, parseInt(v) || 1)}
+            min={1}
+            style={ITEM_BLOCK_STYLE.countInput}
+          />
+        )}
+        {!readOnly && onRemove && (
+          <button
+            style={ITEM_BLOCK_STYLE.deleteBtn}
+            onClick={() => onRemove(entry.actionId)}
+            onMouseEnter={(e) => {
+              (e.target as HTMLElement).style.color = '#ef4444';
+              (e.target as HTMLElement).style.background = 'rgba(239,68,68,0.1)';
+            }}
+            onMouseLeave={(e) => {
+              (e.target as HTMLElement).style.color = '#999';
+              (e.target as HTMLElement).style.background = 'none';
+            }}
+          >
+            ✕
+          </button>
+        )}
       </div>
 
       {detail && detail.steps.length > 0 && (
@@ -1005,7 +1092,9 @@ interface CraftPanelShowProps {
 }
 
 export class CraftPanel extends BasePanel<CraftPanelShowProps> {
-  get title() { return '🔨 物品制造'; }
+  get title() {
+    return '🔨 物品制造';
+  }
   renderContent() {
     return <CraftPanelContent onClose={() => this.hide()} initialEntries={this.props.initialEntries} />;
   }

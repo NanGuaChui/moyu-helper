@@ -15,22 +15,9 @@ interface InputProps {
   style?: JSX.CSSProperties;
   className?: string;
   disabled?: boolean;
+  prefix?: string | JSX.Element;
+  suffix?: string | JSX.Element;
 }
-
-const BASE_STYLE: JSX.CSSProperties = {
-  width: '100%',
-  padding: '6px 8px',
-  border: '1px solid rgba(0, 0, 0, 0.12)',
-  borderRadius: '6px',
-  fontSize: '13px',
-  color: '#1a1a1a',
-  background: '#ffffff',
-  transition: 'all 0.2s ease',
-  boxSizing: 'border-box',
-  outline: 'none',
-  WebkitAppearance: 'none',
-  appearance: 'none',
-};
 
 export function Input({
   type = 'text',
@@ -44,6 +31,8 @@ export function Input({
   style = {},
   className = '',
   disabled = false,
+  prefix,
+  suffix,
 }: InputProps) {
   const handleInput = (e: Event) => {
     const target = e.target as HTMLInputElement;
@@ -56,33 +45,71 @@ export function Input({
     }
   };
 
-  const handleFocus = (e: Event) => {
-    const target = e.target as HTMLElement;
+  const handleContainerFocus = (e: Event) => {
+    const target = e.currentTarget as HTMLElement;
     target.style.borderColor = '#6366f1';
     target.style.boxShadow = '0 0 0 3px rgba(99, 102, 241, 0.1)';
   };
 
-  const handleBlur = (e: Event) => {
-    const target = e.target as HTMLElement;
+  const handleContainerBlur = (e: Event) => {
+    const target = e.currentTarget as HTMLElement;
     target.style.borderColor = 'rgba(0, 0, 0, 0.12)';
     target.style.boxShadow = 'none';
   };
 
+  const containerStyle: JSX.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '6px 8px',
+    border: '1px solid rgba(0, 0, 0, 0.12)',
+    borderRadius: '6px',
+    fontSize: '13px',
+    background: '#ffffff',
+    transition: 'all 0.2s ease',
+    boxSizing: 'border-box',
+    ...style,
+  };
+
+  const inputStyle: JSX.CSSProperties = {
+    flex: 1,
+    border: 'none',
+    outline: 'none',
+    padding: 0,
+    fontSize: '13px',
+    color: '#1a1a1a',
+    background: 'transparent',
+    width: 'auto',
+    minWidth: 0,
+    WebkitAppearance: 'none',
+    appearance: 'none',
+  };
+
+  const affixStyle: JSX.CSSProperties = {
+    fontSize: '12px',
+    color: '#666',
+    whiteSpace: 'nowrap',
+    userSelect: 'none',
+    flexShrink: 0,
+  };
+
   return (
-    <input
-      type={type}
-      className={className}
-      style={{ ...BASE_STYLE, ...style }}
-      value={value}
-      onInput={handleInput}
-      onChange={handleInput}
-      onFocus={handleFocus}
-      onBlur={handleBlur}
-      placeholder={placeholder}
-      min={min}
-      max={max}
-      step={step}
-      disabled={disabled}
-    />
+    <div style={containerStyle} onFocusCapture={handleContainerFocus} onBlurCapture={handleContainerBlur}>
+      {prefix && <span style={affixStyle}>{prefix}</span>}
+      <input
+        type={type}
+        className={className}
+        style={inputStyle}
+        value={value}
+        onInput={handleInput}
+        onChange={handleInput}
+        placeholder={placeholder}
+        min={min}
+        max={max}
+        step={step}
+        disabled={disabled}
+      />
+      {suffix && <span style={affixStyle}>{suffix}</span>}
+    </div>
   );
 }

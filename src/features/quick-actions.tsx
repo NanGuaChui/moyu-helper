@@ -12,8 +12,8 @@ import { qualityToolbarManager } from './quality-toolbar';
 const logger = createLogger('QuickActions');
 
 interface MessageStep {
-  type: 'auto' | 'select';
-  event: string;
+  type: 'auto' | 'select' | 'validate' | 'refresh-inventory';
+  event?: string;
   getData?: (prevResult?: any, userSelection?: any) => any | Promise<any>;
   getSelectionOptions?: (prevResult: any) => Array<{ value: string; label: string }>;
 }
@@ -22,26 +22,35 @@ interface MessageConfig {
   label: string;
   description: string;
   steps: MessageStep[];
-  validate?: () => Promise<void>;
 }
 
-/** 批量获取物品数量 */
-async function getItemCounts(itemIds: string[]): Promise<Record<string, number>> {
-  const inventory = await dataCache.getAsync('inventory');
-  const result: Record<string, number> = {};
-  itemIds.forEach((id) => {
-    result[id] = inventory[id]?.count || 0;
-  });
-  return result;
+/** 获取库存步骤（首次调用时强制刷新，后续使用缓存） */
+function getInventoryStep(): MessageStep {
+  return {
+    type: 'refresh-inventory',
+    getData: async () => {
+      // 如果本次弹窗会话尚未刷新库存，则强制刷新一次
+      const forceRefresh = !quickActions.inventoryRefreshedThisSession;
+      const inventory = await dataCache.getAsync('inventory', forceRefresh);
+      if (forceRefresh) {
+        quickActions.inventoryRefreshedThisSession = true;
+      }
+      return inventory; // 返回库存数据，供后续步骤使用
+    },
+  };
 }
 
-/** 创建物品数量验证器工厂函数 */
-function createItemCountValidator(itemIds: string[], errorMessage: string) {
-  return async () => {
-    const counts = await getItemCounts(itemIds);
-    if (itemIds.every((id) => counts[id] <= 0)) {
-      throw new Error(errorMessage);
-    }
+/** 创建物品数量验证步骤 */
+function createItemCountValidateStep(itemIds: string[], errorMessage: string): MessageStep {
+  return {
+    type: 'validate',
+    getData: async (prevResult) => {
+      const inventory = prevResult; // 从上一步获取库存
+      if (!inventory || itemIds.every((id) => !inventory[id] || inventory[id].count <= 0)) {
+        throw new Error(errorMessage);
+      }
+      return inventory; // 继续传递库存
+    },
   };
 }
 
@@ -50,15 +59,16 @@ function useItemStep(itemId: string): MessageStep {
   return {
     type: 'auto',
     event: 'effectAction:useItem',
-    getData: async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const count = inventory[itemId]?.count || 0;
+    getData: async (prevResult) => {
+      const inventory = prevResult; // 从上一步获取库存
+      const count = inventory?.[itemId]?.count || 0;
       if (count > 0) {
-        // 使用后将本地库存置0，避免缓存过期导致重复使用
+        // 使用后将本地库存置0，避免重复使用
         inventory[itemId].count = 0;
-        return { itemId, multiple: count };
+        // 返回库存和请求数据，保持库存传递
+        return { _inventory: inventory, itemId, multiple: count };
       }
-      return { skip: true };
+      return { _inventory: inventory, skip: true };
     },
   };
 }
@@ -84,8 +94,36 @@ function getUnlearnedSkillBooks(
   return result;
 }
 
-/** 缓存动态生成的技能书步骤，供 steps 引用 */
-let pendingSkillBookSteps: MessageStep[] = [];
+/** 使用未学习的技能书步骤 */
+function useUnlearnedSkillBooksStep(): MessageStep {
+  return {
+    type: 'validate',
+    getData: async (prevResult) => {
+      const inventory = prevResult;
+      const books = getUnlearnedSkillBooks(inventory);
+      if (books.length === 0) {
+        throw new Error('没有未学习的技能书');
+      }
+      const bookList = books.map((b) => getResourceDetail(b.itemId)?.name || b.itemId).join('<br>');
+      if (!(await toast.confirm(`发现 ${books.length} 本未学习的技能书：<br><br>${bookList}<br><br>确认使用？`))) {
+        throw new Error('已取消');
+      }
+      // 批量使用所有技能书
+      for (const book of books) {
+        try {
+          await ws.request('effectAction:useItem', { itemId: book.itemId, multiple: 1 }, 10000);
+          if (inventory && inventory[book.itemId]) {
+            inventory[book.itemId].count = 0;
+          }
+          await sleep(1000);
+        } catch (error) {
+          logger.error(`[快捷功能] 使用技能书失败: ${book.itemId}`, error);
+        }
+      }
+      return inventory;
+    },
+  };
+}
 
 const MESSAGE_CONFIGS: MessageConfig[] = [
   {
@@ -106,11 +144,12 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   {
     label: '一键打开宝箱',
     description: '自动使用仓库中所有的幸运猫盒、神秘罐头、梦羽袋、噩梦宝箱',
-    validate: createItemCountValidator(
-      ['luckyCatBox', 'mysteryCan', 'dreamFeatherBag', 'nightmarePrisonChestNew'],
-      '没有任何宝箱',
-    ),
     steps: [
+      getInventoryStep(),
+      createItemCountValidateStep(
+        ['luckyCatBox', 'mysteryCan', 'dreamFeatherBag', 'nightmarePrisonChestNew'],
+        '没有任何宝箱',
+      ),
       useItemStep('luckyCatBox'),
       useItemStep('mysteryCan'),
       useItemStep('dreamFeatherBag'),
@@ -120,38 +159,17 @@ const MESSAGE_CONFIGS: MessageConfig[] = [
   {
     label: '使用生活/战斗专精书',
     description: '一键使用仓库中所有的生活专精书和战斗专精书',
-    validate: createItemCountValidator(['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'], '没有任何专精书'),
-    steps: [useItemStep('bookOfWorkSkillTreePoint'), useItemStep('bookOfBattleSkillTreePoint')],
+    steps: [
+      getInventoryStep(),
+      createItemCountValidateStep(['bookOfWorkSkillTreePoint', 'bookOfBattleSkillTreePoint'], '没有任何专精书'),
+      useItemStep('bookOfWorkSkillTreePoint'),
+      useItemStep('bookOfBattleSkillTreePoint'),
+    ],
   },
   {
     label: '使用未学习技能书',
     description: '检查仓库中已有但未学习的技能书，确认后一键使用',
-    validate: async () => {
-      const inventory = await dataCache.getAsync('inventory');
-      const books = getUnlearnedSkillBooks(inventory);
-      if (books.length === 0) {
-        throw new Error('没有未学习的技能书');
-      }
-      const bookList = books.map((b) => getResourceDetail(b.itemId)?.name || b.itemId).join('<br>');
-      if (!await toast.confirm(`发现 ${books.length} 本未学习的技能书：<br><br>${bookList}<br><br>确认使用？`)) {
-        throw new Error('已取消');
-      }
-      // 动态生成 steps 并缓存，技能书每种只需使用一本
-      pendingSkillBookSteps = books.map((b): MessageStep => ({
-        type: 'auto',
-        event: 'effectAction:useItem',
-        getData: async () => {
-          const inventory = await dataCache.getAsync('inventory');
-          if (inventory[b.itemId]) {
-            inventory[b.itemId].count = 0;
-          }
-          return { itemId: b.itemId, multiple: 1 };
-        },
-      }));
-    },
-    get steps() {
-      return pendingSkillBookSteps;
-    },
+    steps: [getInventoryStep(), useUnlearnedSkillBooksStep()],
   },
 ];
 
@@ -191,26 +209,45 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
     setCurrentLabel(config.label);
     toast.progress(`正在执行：${config.label}...`, 'quick-actions');
     try {
-      // 执行前置校验
-      if (startIndex === 0 && config.validate) {
-        await config.validate();
-      }
-
       let result = prevResult;
       for (let i = startIndex; i < config.steps.length; i++) {
         const step = config.steps[i];
         toast.progress(`${config.label} - 步骤 ${i + 1}/${config.steps.length}`, 'quick-actions');
+
+        // 处理不需要发送ws消息的步骤类型
+        if (step.type === 'validate' || step.type === 'refresh-inventory') {
+          const data = step.getData ? await step.getData(result, userSelection) : null;
+          result = data; // 更新 result，供后续步骤使用
+          await sleep(300);
+          continue;
+        }
+
         const data = step.getData ? await step.getData(result, userSelection) : null;
 
         // 检查是否跳过此步骤
         if (data?.skip) {
           logger.info(`[快捷功能] 跳过步骤: ${step.event}`);
           toast.progress(`${config.label} - 跳过步骤 ${i + 1}/${config.steps.length}`, 'quick-actions');
+          // 保持库存数据传递
+          if (data._inventory) {
+            result = data._inventory;
+          }
           await sleep(300);
           continue;
         }
 
-        result = await ws.request(step.event, data, 10000);
+        // 提取库存数据（如果有）
+        const inventory = data?._inventory;
+        // 移除内部字段，准备发送请求
+        if (data?._inventory) {
+          delete data._inventory;
+        }
+
+        result = await ws.request(step.event!, data, 10000);
+        // 如果有库存数据，保持传递
+        if (inventory) {
+          result = inventory;
+        }
         logger.info(`[快捷功能] ${step.event} 结果:`, result);
         logger.info(`[快捷功能] 步骤 ${i + 1}/${config.steps.length} 完成: ${step.event}`);
 
@@ -355,6 +392,7 @@ function QuickActionsModal({ isOpen, onClose }: QuickActionsModalProps) {
 class QuickActions extends BaseFeature {
   private container: HTMLDivElement | null = null;
   private isOpen = false;
+  inventoryRefreshedThisSession = false; // 标记本次弹窗会话是否已刷新库存
 
   protected onInit(): void {
     logger.info('快捷功能初始化完成');
@@ -368,11 +406,14 @@ class QuickActions extends BaseFeature {
     this._running.value = value;
   }
 
-  openModal(): void {
+  async openModal(): Promise<void> {
     if (!this.container) {
       this.container = document.createElement('div');
       document.body.appendChild(this.container);
     }
+
+    // 重置库存刷新标志，让getInventoryStep在首次调用时刷新
+    this.inventoryRefreshedThisSession = false;
 
     this.isOpen = true;
     this.render();
