@@ -55,6 +55,11 @@ export const appConfig = {
     'berry',
   ),
 
+  // 宠物喂食配置
+  KITTY_FEED_ENABLED: createGMConfigSetting('kitty_feed_enabled', false),
+  KITTY_FEED_MOOD_THRESHOLD: createGMConfigSetting('kitty_feed_mood_threshold', 192), // 心情阈值
+  KITTY_FEED_FOOD_TYPE: createGMConfigSetting<'luxuryCatFood' | 'catMint'>('kitty_feed_food_type', 'luxuryCatFood'),
+
   // 任务管理器配置
   QUEST_MANAGER_ENABLED: createGMConfigSetting('quest_manager_enabled', false),
   QUEST_GOLD_LIMIT: createGMConfigSetting('quest_gold_limit', 10000),
