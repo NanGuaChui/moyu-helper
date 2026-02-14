@@ -1,6 +1,6 @@
 /**
  * 饱食度管理器
- * 自动监控饱食度并使用食物
+ * 自动监控饱食度和猫咪心情并使用食物
  */
 
 import { toast, dataCache, ws, eventBus, EVENTS, BaseFeature, createLogger } from '@/core';
@@ -10,17 +10,30 @@ import { getWsErrorMessage } from '@/utils';
 import { type FoodType } from '@/config/defaults';
 import { appConfig } from '@/config/gm-settings';
 
+// 宠物数据接口
+interface Kitty {
+  uuid: string;
+  name: string;
+  mood: number; // 心情
+}
+
 class SatietyManager extends BaseFeature {
   private isChecking = false;
   private enabled = false;
+  private kittyFeedEnabled = false;
   private foodType: FoodType = 'berry';
+  private kittyFeedFoodType: 'luxuryCatFood' | 'catMint' = 'luxuryCatFood';
+  private kittyCheckTimer: NodeJS.Timeout | null = null;
 
   protected async onInit(): Promise<void> {
     this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
     this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
+    this.kittyFeedEnabled = await appConfig.KITTY_FEED_ENABLED.get();
+    this.kittyFeedFoodType = await appConfig.KITTY_FEED_FOOD_TYPE.get();
 
     ws.once('dispatchInventoryInfo', () => {
       setTimeout(() => this.checkAndUseFood(), 1000);
+      setTimeout(() => this.checkKittyMood(), 1000);
     });
 
     eventBus.on(EVENTS.SETTINGS_UPDATED, () => this.reload());
@@ -30,6 +43,8 @@ class SatietyManager extends BaseFeature {
   protected async onReload(): Promise<void> {
     this.enabled = await appConfig.AUTO_USE_BERRY_ENABLED.get();
     this.foodType = await appConfig.AUTO_USE_BERRY_FOOD_TYPE.get();
+    this.kittyFeedEnabled = await appConfig.KITTY_FEED_ENABLED.get();
+    this.kittyFeedFoodType = await appConfig.KITTY_FEED_FOOD_TYPE.get();
     logger.info('饱食度管理配置已刷新');
   }
 
@@ -66,12 +81,79 @@ class SatietyManager extends BaseFeature {
     }
   }
 
+  private async checkKittyMood(): Promise<void> {
+    if (!this.kittyFeedEnabled) return;
+
+    // 防抖：1秒内只检查一次
+    if (this.kittyCheckTimer) {
+      clearTimeout(this.kittyCheckTimer);
+    }
+
+    this.kittyCheckTimer = setTimeout(async () => {
+      try {
+        const userInfo = await dataCache.getAsync('userInfo');
+        const kitties = (userInfo.kittyInfo || []) as Kitty[];
+
+        if (!Array.isArray(kitties) || kitties.length === 0) {
+          return;
+        }
+
+        const moodThreshold = await appConfig.KITTY_FEED_MOOD_THRESHOLD.get();
+
+        for (const kitty of kitties) {
+          if (kitty.mood < moodThreshold) {
+            await this.feedKitty(kitty, moodThreshold);
+          }
+        }
+      } catch (error) {
+        logger.error('检查宠物心情失败', error);
+      } finally {
+        this.kittyCheckTimer = null;
+      }
+    }, 1000);
+  }
+
+  private async feedKitty(kitty: Kitty, moodThreshold: number): Promise<void> {
+    try {
+      // 每次喂食增加的心情值
+      const moodGainPerFeed = this.kittyFeedFoodType === 'luxuryCatFood' ? 8 : 3;
+
+      // 计算需要喂食的数量
+      const needed = Math.ceil((moodThreshold - kitty.mood) / moodGainPerFeed);
+      const count = Math.max(1, needed);
+
+      await ws.request('kitty:feed', {
+        kittyUuid: kitty.uuid,
+        resourceId: this.kittyFeedFoodType,
+        count,
+      });
+
+      const foodName = this.kittyFeedFoodType === 'luxuryCatFood' ? '豪华猫粮' : '猫咪零食';
+      const expectedMood = kitty.mood + count * moodGainPerFeed;
+      logger.info(
+        `宠物 ${kitty.name} 已喂食 ${count} 个${foodName}，当前心情: ${kitty.mood}，预期心情: ${expectedMood}`,
+      );
+      toast.success(`✅ 已为 ${kitty.name} 喂食 ${count} 个${foodName}，预期心情: ${expectedMood}`);
+    } catch (error) {
+      logger.error(`宠物 ${kitty.name} 喂食失败`, error);
+      toast.error(getWsErrorMessage(error, `宠物 ${kitty.name} 喂食失败`));
+    }
+  }
+
   isEnabled(): boolean {
     return this.enabled;
   }
 
   getFoodType(): FoodType {
     return this.foodType;
+  }
+
+  isKittyFeedEnabled(): boolean {
+    return this.kittyFeedEnabled;
+  }
+
+  getKittyFeedFoodType(): 'luxuryCatFood' | 'catMint' {
+    return this.kittyFeedFoodType;
   }
 }
 

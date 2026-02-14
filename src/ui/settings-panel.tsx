@@ -326,7 +326,7 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
           <Checkbox
             checked={settings[appConfig.AUTO_USE_BERRY_ENABLED.key]}
             onChange={(v) => updateSetting(appConfig.AUTO_USE_BERRY_ENABLED.key, v)}
-            label="启用饱食度管理"
+            label="启用大猫饱食度管理"
           />
         </Row>
         <Row label="食物类型">
@@ -356,6 +356,33 @@ function SettingsPanelContent({ onClose, resourceMonitor, satietyManager }: Sett
             onChange={(v) => updateSetting(appConfig.AUTO_USE_BERRY_TARGET.key, parseInt(v) || 0)}
             min={0}
             step={100000}
+          />
+        </Row>
+        <Row>
+          <Checkbox
+            checked={settings[appConfig.KITTY_FEED_ENABLED.key]}
+            onChange={(v) => updateSetting(appConfig.KITTY_FEED_ENABLED.key, v)}
+            label="启用小猫心情管理"
+          />
+        </Row>
+        <Row label="喂食食物类型">
+          <Select
+            value={settings[appConfig.KITTY_FEED_FOOD_TYPE.key]}
+            onChange={(v) => updateSetting(appConfig.KITTY_FEED_FOOD_TYPE.key, v as 'luxuryCatFood' | 'catMint')}
+            options={[
+              { value: 'luxuryCatFood', label: '豪华猫粮' },
+              { value: 'catMint', label: '猫咪零食' },
+            ]}
+          />
+        </Row>
+        <Row label="心情阈值">
+          <Input
+            type="number"
+            value={settings[appConfig.KITTY_FEED_MOOD_THRESHOLD.key]}
+            onChange={(v) => updateSetting(appConfig.KITTY_FEED_MOOD_THRESHOLD.key, parseInt(v) || 0)}
+            min={0}
+            max={200}
+            step={5}
           />
         </Row>
       </Card>

@@ -172,6 +172,7 @@ class CraftManager extends BaseFeature {
   }
 
   buildPlan(actionId: string, targetCount: number): CraftStep[] {
+    if (!this._initialized) this.init();
     const item = this.findByActionId(actionId);
     if (!item) {
       toast.error('未找到制造配方');
@@ -244,6 +245,7 @@ class CraftManager extends BaseFeature {
     optimized: CraftStep[];
     missingResources: MissingResource[];
   }> {
+    if (!this._initialized) this.init();
     try {
       const optimized: CraftStep[] = [];
       const resourceNeeds = new Map<string, number>();
